@@ -647,15 +647,6 @@
         modal.overlay.classList.add('visible');
     };
 
-    function lockPracticeScreenHeight() {
-        const container = document.getElementById('practice-container');
-        if (container) {
-            // Set the container height to the actual viewport height in pixels.
-            // This 'locks' the layout and prevents it from resizing when the
-            // on-screen keyboard appears on mobile devices.
-            container.style.height = `${window.innerHeight}px`;
-        }
-    }
 
     // --- UI Update Functions ---
     const updateSelectorUI = (key) => { const config = configOptions[key]; settings[key].value.textContent = config.display[config.current]; settings[key].prev.disabled = config.current === 0; settings[key].next.disabled = config.current === config.options.length - 1; };
@@ -856,6 +847,10 @@
 
     // --- Logika Utama Aplikasi ---
     function setupPracticeScreen(text, duration, title, examInfo = null) {
+        // Lock the body scroll and set the screen height to prevent layout shifts
+        document.body.style.overflow = 'hidden';
+        screens.practice.style.height = '100dvh';
+
         appState.originalSourceText = text;
 
         if (examInfo) {
@@ -886,7 +881,7 @@
         autoResizeTextarea();
         showStatusMessage('', '');
         showScreen('practice');
-        lockPracticeScreenHeight();
+
         if (duration > 0) {
             practiceElements.timer.classList.remove('hidden');
             practiceElements.timer.classList.add('flex');
@@ -978,6 +973,7 @@
     function handleReset() { 
         audio.play('click');
         document.body.style.overflow = 'auto'; // Restore body scroll
+        screens.practice.style.height = 'auto'; // Restore practice screen height
         showScreen('mainMenu');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         appState = {
