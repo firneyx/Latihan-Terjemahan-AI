@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Latihan Terjemahan AI (Pembaruan Audio & AI)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; /* slate-50 */ color: #334155; /* slate-700 */ }
@@ -410,26 +409,260 @@
         { type: "Akademik", domains: ["Ilmu Sosial & Humaniora", "Sains & Teknologi", "Kedokteran & Kesehatan", "Ekonomi & Bisnis", "Ilmu Komputer & IT", "Teknik & Rekayasa", "Psikologi & Perilaku", "Pendidikan & Pedagogi", "Sejarah & Arkeologi", "Filsafat & Etika", "Linguistik & Bahasa", "Seni & Sejarah Seni", "Ilmu Politik & Pemerintahan", "Studi Lingkungan", "Matematika & Statistik", "Fisika & Astronomi", "Kimia & Biokimia", "Antropologi & Sosiologi", "Studi Media & Komunikasi", "Hukum & Kriminologi"] }
     ];
 
-    // --- Audio FX Redesign ---
+    // --- Audio FX Redesign: "Aqua-Glass" theme using native Web Audio API ---
     const audioFX = {
+        audioContext: null,
+        masterGain: null,
+        isSuspended: true,
+        loadingArpeggiator: null,
+
+        // Must be called by a user action (e.g., click)
         _init: async function() {
-            if (!appState.audioContextStarted && Tone.context.state !== 'running') {
-                await Tone.start();
-                console.log('Audio Context dimulai!');
+            if (this.audioContext || appState.audioContextStarted) return;
+            try {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.audioContext.createGain();
+                this.masterGain.connect(this.audioContext.destination);
+                this.masterGain.gain.value = 0.8; // Master volume
+
+                if (this.audioContext.state === 'suspended') {
+                    this.isSuspended = true;
+                } else {
+                    this.isSuspended = false;
+                }
                 appState.audioContextStarted = true;
+                console.log('Web Audio API initialized.');
+            } catch (e) {
+                console.error('Web Audio API is not supported in this browser', e);
             }
         },
-        navForward: () => { const synth = new Tone.MembraneSynth({ volume: -10, pitchDecay: 0.01, octaves: 4, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(); synth.triggerAttackRelease('C2', '8n'); },
-        navSelect: () => { const synth = new Tone.Synth({ volume: -20, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.1 } }).toDestination(); synth.triggerAttackRelease('A4', '64n'); },
-        navBack: () => { const synth = new Tone.Synth({ volume: -15, oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.2 } }).toDestination(); const now = Tone.now(); synth.triggerAttackRelease('A3', '16n', now); synth.triggerAttackRelease('F#3', '16n', now + 0.08); },
-        navSwitch: () => { const noise = new Tone.NoiseSynth({ noise: { type: 'pink' }, volume: -22, envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).toDestination(); noise.triggerAttackRelease('32n'); },
-        scoreHigh: () => { const reverb = new Tone.Reverb(0.6).toDestination(); const synth = new Tone.PolySynth(Tone.Synth, { volume: -12, oscillator: { type: 'fatsawtooth', count: 3, spread: 40 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 } }).connect(reverb); synth.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '8n', Tone.now()); },
-        scoreMid: () => { const synth = new Tone.PolySynth(Tone.Synth, { volume: -14, oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 0.8 } }).toDestination(); synth.triggerAttackRelease(['C4', 'G4', 'C5'], '2n'); },
-        scoreLow: () => { const synth = new Tone.PolySynth(Tone.Synth, { volume: -16, oscillator: { type: 'square', detune: 6 }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).toDestination(); synth.triggerAttackRelease(['A3', 'A#3'], '8n'); },
-        error: () => { const synth = new Tone.NoiseSynth({ volume: -18, noise: { type: 'brown' }, envelope: { attack: 0.005, decay: 0.15, sustain: 0 } }).toDestination(); synth.triggerAttackRelease('8n'); },
-        notification: () => { const delay = new Tone.PingPongDelay("8n", 0.3).toDestination(); const synth = new Tone.FMSynth({ volume: -10, harmonicity: 2, modulationIndex: 3, envelope: { attack: 0.01, decay: 0.3 }, modulationEnvelope: { attack: 0.01, decay: 0.2 } }).connect(delay); synth.triggerAttackRelease('A5', '16n'); },
-        startLoading: () => { if (appState.loadingSound) return; const filter = new Tone.AutoFilter("8n").toDestination().start(); const synth = new Tone.Synth({ volume: -25, oscillator: { type: 'pulse' }, envelope: { attack: 0.1, decay: 0.2, sustain: 1, release: 0.5 } }).connect(filter); appState.loadingSound = { synth, filter }; synth.triggerAttack('C3'); },
-        stopLoading: () => { if (appState.loadingSound) { appState.loadingSound.synth.triggerRelease(); appState.loadingSound.filter.stop().dispose(); appState.loadingSound = null; } }
+
+        // Resume context if it was suspended
+        _resumeContext: async function() {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                try {
+                    await this.audioContext.resume();
+                    this.isSuspended = false;
+                    console.log('Audio Context resumed.');
+                } catch(e) {
+                    console.error("Error resuming Audio Context:", e);
+                }
+            }
+        },
+
+        // Helper to convert MIDI note to frequency
+        _midiToFreq: (midi) => Math.pow(2, (midi - 69) / 12) * 440,
+
+        // Main sound creation function
+        _createVoice: function(freq, options = {}) {
+            if (!this.audioContext || this.isSuspended) return;
+
+            const now = this.audioContext.currentTime;
+            const {
+                type = 'sine',
+                attack = 0.01,
+                decay = 0.1,
+                sustain = 0.1,
+                release = 0.2,
+                volume = 0.5,
+                overtones = [] // [{ freqMultiplier, gain }]
+            } = options;
+
+            const mainGain = this.audioContext.createGain();
+            mainGain.gain.setValueAtTime(0, now);
+            mainGain.gain.linearRampToValueAtTime(volume, now + attack);
+            mainGain.gain.setTargetAtTime(volume * sustain, now + attack, decay + 0.001);
+            const stopTime = now + attack + decay + release;
+            mainGain.gain.setTargetAtTime(0, now + attack + decay, release / 4);
+            mainGain.connect(this.masterGain);
+
+            const osc = this.audioContext.createOscillator();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now);
+            osc.connect(mainGain);
+            osc.start(now);
+            osc.stop(stopTime);
+
+            // Add overtones for richer sounds
+            overtones.forEach(ot => {
+                const overtoneOsc = this.audioContext.createOscillator();
+                overtoneOsc.type = 'sine';
+                overtoneOsc.frequency.setValueAtTime(freq * ot.freqMultiplier, now);
+
+                const overtoneGain = this.audioContext.createGain();
+                overtoneGain.gain.setValueAtTime(ot.gain * volume, now);
+
+                overtoneOsc.connect(overtoneGain);
+                overtoneGain.connect(mainGain);
+                overtoneOsc.start(now);
+                overtoneOsc.stop(stopTime);
+            });
+        },
+
+        // Thematic "Glassy Pluck" instrument
+        _glassyPluck: function(freq, options = {}) {
+            this._createVoice(freq, {
+                type: 'sine',
+                attack: 0.005,
+                decay: 0.15,
+                sustain: 0.05,
+                release: 0.2,
+                volume: 0.4,
+                overtones: [
+                    { freqMultiplier: 2.0, gain: 0.3 },
+                    { freqMultiplier: 3.0, gain: 0.15 }
+                ],
+                ...options
+            });
+        },
+
+        // --- PUBLIC API (Mechanical & Tactile Theme) ---
+        navForward: function() {
+            this._resumeContext();
+            // Complex sound: "tick" followed by a rising "whir"
+            this._createVoice(this._midiToFreq(84), { type: 'triangle', volume: 0.3, attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 });
+            if (!this.audioContext || this.isSuspended) return;
+            const now = this.audioContext.currentTime;
+            const whirGain = this.audioContext.createGain();
+            whirGain.gain.setValueAtTime(0, now + 0.02);
+            whirGain.gain.linearRampToValueAtTime(0.1, now + 0.03);
+            whirGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            whirGain.connect(this.masterGain);
+            const whirOsc = this.audioContext.createOscillator();
+            whirOsc.type = 'sawtooth';
+            whirOsc.frequency.setValueAtTime(800, now + 0.02);
+            whirOsc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+            whirOsc.connect(whirGain);
+            whirOsc.start(now + 0.02);
+            whirOsc.stop(now + 0.2);
+        },
+        navBack: function() {
+            this._resumeContext();
+            // "Thunk" sound
+            this._createVoice(120, { type: 'square', volume: 0.3, attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 });
+        },
+        // Granular selection sounds
+        navSelect: function() { // For general buttons, this is the default click.
+            this._resumeContext();
+            this._createVoice(this._midiToFreq(88), { type: 'triangle', volume: 0.3, attack: 0.001, decay: 0.03, sustain: 0, release: 0.05 });
+        },
+        navSelectSegment: function() { // For segmented controls
+            this._resumeContext();
+            this._createVoice(this._midiToFreq(72), { type: 'square', volume: 0.25, attack: 0.002, decay: 0.08, sustain: 0, release: 0.08 });
+        },
+        navSelectControl: function() { // For up/down arrows
+            this._resumeContext();
+            // Ratchet sound
+            for (let i = 0; i < 2; i++) {
+                setTimeout(() => {
+                    this._createVoice(this._midiToFreq(96), { type: 'triangle', volume: 0.08, attack: 0.001, decay: 0.015, sustain: 0, release: 0.015 });
+                }, i * 25);
+            }
+        },
+        navSwitch: function() {
+            if (!this.audioContext || this.isSuspended) return;
+            this._resumeContext();
+            const now = this.audioContext.currentTime;
+            const bufferSize = this.audioContext.sampleRate * 0.15; // 150ms
+            const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = this.audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = this.audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(20000, now);
+            filter.frequency.exponentialRampToValueAtTime(400, now + 0.15);
+
+            const gain = this.audioContext.createGain();
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            noise.start(now);
+            noise.stop(now + 0.15);
+        },
+        scoreHigh: function() {
+            this._resumeContext();
+            const notes = [60, 64, 67, 71]; // C4, E4, G4, B4 (Cmaj7)
+
+            notes.forEach((note, i) => {
+                setTimeout(() => {
+                    this._glassyPluck(this._midiToFreq(note), { volume: 0.5, release: 0.8 });
+                }, i * 80);
+            });
+             setTimeout(() => {
+                notes.forEach(note => this._glassyPluck(this._midiToFreq(note), { volume: 0.2, release: 1.0, attack: 0.2 }));
+            }, notes.length * 80);
+        },
+        scoreMid: function() {
+            this._resumeContext();
+            const notes = [67, 71, 74]; // G, B, D (G Major)
+            notes.forEach(note => {
+                this._createVoice(this._midiToFreq(note), { type: 'triangle', volume: 0.4, release: 0.5 });
+            });
+        },
+        scoreLow: function() {
+            this._resumeContext();
+            const notes = [57, 60, 64, 67]; // A3, C4, E4, G4 (Am7)
+            notes.forEach(note => {
+                this._createVoice(this._midiToFreq(note), { type: 'sawtooth', volume: 0.15, attack: 0.1, release: 0.8 });
+            });
+        },
+        error: function() {
+            this._resumeContext();
+            this._createVoice(80, { type: 'sawtooth', volume: 0.3, attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 });
+        },
+        notification: function() {
+            this._resumeContext();
+            if (!this.audioContext || this.isSuspended) return;
+            const now = this.audioContext.currentTime;
+
+            const mainGain = this.audioContext.createGain();
+            mainGain.gain.setValueAtTime(0, now);
+            mainGain.gain.linearRampToValueAtTime(0.6, now + 0.01);
+            mainGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+            mainGain.connect(this.masterGain);
+
+            const osc = this.audioContext.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(this._midiToFreq(88), now); // G#6
+            osc.frequency.exponentialRampToValueAtTime(this._midiToFreq(76), now + 1.5); // E5
+            osc.connect(mainGain);
+
+            osc.start(now);
+            osc.stop(now + 1.5);
+        },
+        startLoading: function() {
+            this._resumeContext();
+            if (!this.audioContext || this.isSuspended || this.loadingArpeggiator) return;
+
+            const notes = [60, 62, 64, 67, 69]; // Cmaj Pentatonic
+            let noteIndex = 0;
+
+            const playNote = () => {
+                const freq = this._midiToFreq(notes[noteIndex]);
+                this._glassyPluck(freq, { volume: 0.15, release: 0.2 });
+                noteIndex = (noteIndex + 1) % notes.length;
+            };
+
+            this.loadingArpeggiator = setInterval(playNote, 180);
+            appState.loadingSound = true;
+        },
+        stopLoading: function() {
+            if (this.loadingArpeggiator) {
+                clearInterval(this.loadingArpeggiator);
+                this.loadingArpeggiator = null;
+                appState.loadingSound = false;
+            }
+        }
     };
 
     // --- Fungsi Pembantu ---
@@ -551,7 +784,7 @@
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
         const targetOption = e.target.closest('.option');
         if (!targetOption) return;
-        audioFX.navSelect();
+        audioFX.navSelectSegment();
         const selectedMode = targetOption.dataset.value;
         appState.currentMode = selectedMode;
         updateSegmentedControl(mainMenuElements.modeToggle, selectedMode);
@@ -571,7 +804,7 @@
     });
 
     buttons.mainStart.addEventListener('click', () => {
-        audioFX._init();
+        // audioFX._init() is now called on app load to enable audio from the first interaction.
         audioFX.navForward();
         if (appState.currentMode === 'free') {
             handleStartFreePractice();
@@ -591,8 +824,8 @@
     });
 
     settings.directionBtn.addEventListener('click', () => { audioFX.navSelect(); configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id'; const isEnId = configOptions.direction === 'en-id'; settings.langFrom.textContent = isEnId ? 'EN' : 'ID'; settings.langTo.textContent = isEnId ? 'ID' : 'EN'; settings.directionIcon.classList.toggle('rotate-180'); settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`; });
-    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; audioFX.navSelect(); configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
-    const createSelectorHandler = (key, direction) => () => { audioFX.navSelect(); const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
+    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; audioFX.navSelectSegment(); configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
+    const createSelectorHandler = (key, direction) => () => { audioFX.navSelectControl(); const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
     settings.length.prev.addEventListener('click', createSelectorHandler('length', -1));
     settings.length.next.addEventListener('click', createSelectorHandler('length', 1));
     settings.level.prev.addEventListener('click', createSelectorHandler('level', -1));
@@ -1347,7 +1580,23 @@
     function initializeApp() {
         initializeAppUI();
         showScreen('mainMenu');
-        settings.duration.slider.addEventListener('input', () => { audioFX.navSelect(); updateDurationSlider(); });
+        settings.duration.slider.addEventListener('input', () => { audioFX.navSelectControl(); updateDurationSlider(); });
+
+        // Initialize audio context early, so it's ready on the first user interaction.
+        audioFX._init();
+
+        // The AudioContext starts suspended and must be resumed by a user gesture.
+        // This one-time listener handles the first interaction anywhere on the page.
+        const resumeAudio = () => {
+            if (audioFX.audioContext && audioFX.audioContext.state === 'suspended') {
+                audioFX._resumeContext();
+            }
+            // Clean up the listener after first use
+            document.body.removeEventListener('click', resumeAudio);
+            document.body.removeEventListener('touchend', resumeAudio);
+        };
+        document.body.addEventListener('click', resumeAudio);
+        document.body.addEventListener('touchend', resumeAudio);
     }
     
     document.addEventListener('DOMContentLoaded', initializeApp);
