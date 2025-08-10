@@ -274,6 +274,35 @@
     </div>
 
 <script type="module">
+    // --- Audio FX Utility ---
+    class AudioFX {
+        constructor(soundMap) {
+            this.sounds = {};
+            this.isMuted = false;
+            for (const key in soundMap) {
+                this.sounds[key] = new Audio(soundMap[key]);
+                this.sounds[key].preload = 'auto';
+            }
+        }
+
+        play(key, options = {}) {
+            if (this.isMuted) return;
+            const sound = this.sounds[key];
+            if (sound) {
+                const soundToPlay = sound.cloneNode();
+                soundToPlay.volume = options.volume || 0.5;
+                const pitch = options.pitch || (1.0 + (Math.random() - 0.5) * 0.15);
+                soundToPlay.playbackRate = pitch;
+                soundToPlay.play().catch(e => {});
+            }
+        }
+
+        toggleMute() {
+            this.isMuted = !this.isMuted;
+            return this.isMuted;
+        }
+    }
+
     // --- Elemen DOM ---
     const screens = { 
         mainMenu: document.getElementById('main-menu-screen'),
@@ -384,6 +413,21 @@
         onConfirmAction: null
     };
     
+    // --- Audio Initialization ---
+    // NOTE: These URLs are placeholders as the search tool was unavailable.
+    // They may not be functional and can be replaced with actual audio file URLs.
+    const audio = new AudioFX({
+        'click': 'https://cdn.pixabay.com/audio/2022/03/15/audio_245a44a049.mp3',
+        'click-alt': 'https://cdn.pixabay.com/audio/2022/03/10/audio_c848a87999.mp3',
+        'toggle': 'https://cdn.pixabay.com/audio/2022/11/18/audio_83a02b311d.mp3',
+        'start': 'https://cdn.pixabay.com/audio/2023/04/18/audio_5514f7b2a1.mp3',
+        'submit': 'https://cdn.pixabay.com/audio/2022/03/13/audio_2df4a41314.mp3',
+        'swoosh': 'https://cdn.pixabay.com/audio/2024/04/01/audio_55a758a002.mp3',
+        'popup': 'https://cdn.pixabay.com/audio/2022/10/28/audio_17b817357d.mp3',
+        'success': 'https://cdn.pixabay.com/audio/2022/11/18/audio_4734891b94.mp3',
+        'expand': 'https://cdn.pixabay.com/audio/2022/03/15/audio_245a44a049.mp3'
+    });
+
     // --- New AI Model Configuration ---
     const API_KEY = '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';
     const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -566,7 +610,15 @@
         if (score >= 70) return 'C';
         return 'Tidak Lulus';
     };
-    const showScreen = (screenName) => { Object.values(screens).forEach(screen => screen.classList.add('hidden')); screens[screenName].style.opacity = 0; screens[screenName].classList.remove('hidden'); setTimeout(() => screens[screenName].style.opacity = 1, 50); };
+    const showScreen = (screenName) => {
+        Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+        screens[screenName].style.opacity = 0;
+        screens[screenName].classList.remove('hidden');
+        setTimeout(() => screens[screenName].style.opacity = 1, 50);
+        if (screenName !== 'mainMenu') {
+            audio.play('swoosh', { volume: 0.3, pitch: 1.1 });
+        }
+    };
     const showLoader = (visible, text = "Memuat...", type = 'analysis') => { loader.text.textContent = text; loader.element.className = 'loader'; loader.element.classList.add(type); loader.container.classList.toggle('visible', visible); };
     const autoResizeTextarea = () => { const textarea = practiceElements.translationInput; textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; practiceElements.highlighter.style.height = `${textarea.scrollHeight}px`; };
     const updateHighlighter = (text, errors) => { let content = text.replace(/\n/g, '<br>'); if (errors && errors.length > 0) { const escapedErrors = errors.map(e => e.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')); const regex = new RegExp(`\\b(${escapedErrors.join('|')})\\b`, 'gi'); content = content.replace(regex, `<mark class="typo">$1</mark>`); } practiceElements.highlighter.innerHTML = content; };
@@ -575,6 +627,7 @@
     const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; };
     const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
     const showConfirmationModal = (message, onConfirm, title = "Konfirmasi") => {
+        audio.play('popup', { volume: 0.6 });
         modal.message.textContent = message;
         modal.title.textContent = title;
         appState.onConfirmAction = onConfirm;
@@ -593,6 +646,8 @@
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
         const targetOption = e.target.closest('.option');
         if (!targetOption) return;
+
+        audio.play('toggle', { volume: 0.4 });
         const selectedMode = targetOption.dataset.value;
         appState.currentMode = selectedMode;
         updateSegmentedControl(mainMenuElements.modeToggle, selectedMode);
@@ -612,6 +667,7 @@
     });
 
     buttons.mainStart.addEventListener('click', () => {
+        audio.play('start', { volume: 0.6 });
         if (appState.currentMode === 'free') {
             handleStartFreePractice();
         } else {
@@ -619,8 +675,13 @@
         }
     });
 
-    modal.cancelBtn.addEventListener('click', () => modal.overlay.classList.remove('visible'));
+    modal.cancelBtn.addEventListener('click', () => {
+        audio.play('click-alt', { volume: 0.5 });
+        modal.overlay.classList.remove('visible');
+    });
+
     modal.confirmBtn.addEventListener('click', () => {
+        audio.play('click', { volume: 0.6 });
         modal.overlay.classList.remove('visible');
         if (appState.onConfirmAction) {
             appState.onConfirmAction();
@@ -628,52 +689,144 @@
         }
     });
 
-    settings.duration.slider.addEventListener('input', updateDurationSlider);
-    settings.directionBtn.addEventListener('click', () => { configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id'; const isEnId = configOptions.direction === 'en-id'; settings.langFrom.textContent = isEnId ? 'EN' : 'ID'; settings.langTo.textContent = isEnId ? 'ID' : 'EN'; settings.directionIcon.classList.toggle('rotate-180'); settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`; });
-    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
-    const createSelectorHandler = (key, direction) => () => { const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
+    settings.duration.slider.addEventListener('input', () => {
+        updateDurationSlider();
+        const value = parseInt(settings.duration.slider.value);
+        const max = parseInt(settings.duration.slider.max);
+        const pitch = 1.0 + (value / max) * 0.5;
+        audio.play('click', { volume: 0.3, pitch: pitch });
+    });
+
+    settings.directionBtn.addEventListener('click', () => {
+        audio.play('toggle');
+        configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id';
+        const isEnId = configOptions.direction === 'en-id';
+        settings.langFrom.textContent = isEnId ? 'EN' : 'ID';
+        settings.langTo.textContent = isEnId ? 'ID' : 'EN';
+        settings.directionIcon.classList.toggle('rotate-180');
+        settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`;
+    });
+
+    settings.paragraphsToggle.addEventListener('click', (e) => {
+        const targetOption = e.target.closest('.option');
+        if (!targetOption) return;
+        audio.play('toggle', { volume: 0.4 });
+        configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10);
+        updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current);
+    });
+
+    const createSelectorHandler = (key, direction) => () => {
+        const config = configOptions[key];
+        const newIndex = config.current + direction;
+        if (newIndex >= 0 && newIndex < config.options.length) {
+            config.current = newIndex;
+            updateSelectorUI(key);
+            audio.play('click', { pitch: 1.0 + direction * 0.1 });
+        }
+    };
+
     settings.length.prev.addEventListener('click', createSelectorHandler('length', -1));
     settings.length.next.addEventListener('click', createSelectorHandler('length', 1));
     settings.level.prev.addEventListener('click', createSelectorHandler('level', -1));
     settings.level.next.addEventListener('click', createSelectorHandler('level', 1));
+
     practiceElements.translationInput.addEventListener('input', () => { autoResizeTextarea(); updateHighlighter(practiceElements.translationInput.value, []); showStatusMessage('', ''); });
     practiceElements.translationInput.addEventListener('scroll', () => { practiceElements.highlighter.scrollTop = practiceElements.translationInput.scrollTop; });
-    stageIntroElements.startBtn.addEventListener('click', handleStartStagePractice);
-    buttons.headerSubmit.addEventListener('click', () => showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit()));
-    buttons.backToMenuStage.addEventListener('click', () => showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset()));
-    buttons.backToMenuSummary.addEventListener('click', handleReset);
-    buttons.nextRound.addEventListener('click', handleNextRound);
+
+    stageIntroElements.startBtn.addEventListener('click', () => {
+        audio.play('start', { volume: 0.6 });
+        handleStartStagePractice();
+    });
+
+    buttons.headerSubmit.addEventListener('click', () => {
+        showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit());
+    });
+
+    buttons.backToMenuStage.addEventListener('click', () => {
+        audio.play('click-alt');
+        showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset());
+    });
+
+    buttons.backToMenuSummary.addEventListener('click', () => {
+        audio.play('click');
+        handleReset();
+    });
+
+    buttons.nextRound.addEventListener('click', () => {
+        audio.play('start');
+        handleNextRound();
+    });
+
     buttons.backPractice.addEventListener('click', () => {
+        audio.play('click-alt');
         const message = appState.currentMode === 'exam' 
             ? "Keluar dari tahap ini akan mengakhiri seluruh sesi ujian. Apakah Anda yakin?" 
             : "Apakah Anda yakin ingin keluar? Progress latihan ini akan hilang.";
         showConfirmationModal(message, () => handleReset());
     });
+
     buttons.aspectView.addEventListener('click', () => switchView('aspect'));
     buttons.comparisonView.addEventListener('click', () => switchView('comparison'));
     buttons.insightsView.addEventListener('click', () => switchView('insights'));
-    buttons.generateInsights.addEventListener('click', handleGenerateInsights);
-    buttons.prevAi.addEventListener('click', () => { if (appState.currentAiTranslationIndex > 0) { appState.currentAiTranslationIndex--; updateAiTranslationView(); } });
-    buttons.nextAi.addEventListener('click', () => { if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) { appState.currentAiTranslationIndex++; updateAiTranslationView(); } });
-    resultsElements.aspectView.addEventListener('click', (e) => { const header = e.target.closest('.aspect-header'); if (header) { const parentSection = header.closest('section'); if (parentSection) { const details = parentSection.querySelector('.focus-details'); if (details) { header.classList.toggle('expanded'); details.classList.toggle('expanded'); } } } });
+
+    buttons.generateInsights.addEventListener('click', () => {
+        audio.play('start', { pitch: 1.2 });
+        handleGenerateInsights();
+    });
+
+    buttons.prevAi.addEventListener('click', () => {
+        if (appState.currentAiTranslationIndex > 0) {
+            audio.play('click', { volume: 0.4, pitch: 0.9 });
+            appState.currentAiTranslationIndex--;
+            updateAiTranslationView();
+        }
+    });
+
+    buttons.nextAi.addEventListener('click', () => {
+        if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) {
+            audio.play('click', { volume: 0.4, pitch: 1.1 });
+            appState.currentAiTranslationIndex++;
+            updateAiTranslationView();
+        }
+    });
+
+    resultsElements.aspectView.addEventListener('click', (e) => {
+        const header = e.target.closest('.aspect-header');
+        if (header) {
+            const parentSection = header.closest('section');
+            if (parentSection) {
+                const details = parentSection.querySelector('.focus-details');
+                if (details) {
+                    audio.play('expand', { volume: 0.4, pitch: details.classList.contains('expanded') ? 0.9 : 1.1 });
+                    header.classList.toggle('expanded');
+                    details.classList.toggle('expanded');
+                }
+            }
+        }
+    });
+
     stageIntroElements.domainSelection.addEventListener('click', e => {
         const card = e.target.closest('.domain-card');
         if (card) {
+            audio.play('click');
             document.querySelectorAll('.domain-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             appState.exam.selectedDomain = card.dataset.domain;
             stageIntroElements.domainError.classList.add('hidden');
         }
     });
+
     resultsElements.comparisonView.addEventListener('click', (e) => {
         const reorderBtn = e.target.closest('.reorder-btn');
         const highlightBtn = e.target.closest('.highlight-trigger-btn');
         if (reorderBtn) {
+            audio.play('click-alt', { volume: 0.5 });
             const section = reorderBtn.closest('section');
             const direction = reorderBtn.dataset.direction;
             reorderTextSections(section, direction);
         }
         if (highlightBtn) {
+            audio.play('submit');
             handleManualHighlight(highlightBtn);
         }
     });
@@ -768,6 +921,7 @@
     }
 
     async function handleSubmit() { 
+        audio.play('submit');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         const currentTranslation = practiceElements.translationInput.value.trim(); 
         if (!currentTranslation) {
@@ -797,6 +951,7 @@
     }
     
     function handleReset() { 
+        audio.play('click');
         showScreen('mainMenu');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         appState = {
@@ -815,6 +970,7 @@
     }
     
     function switchView(viewName) { 
+        audio.play('swoosh', { volume: 0.4 });
         const views = { aspect: resultsElements.aspectView, comparison: resultsElements.comparisonView, insights: resultsElements.insightsView };
         const viewButtons = { aspect: buttons.aspectView, comparison: buttons.comparisonView, insights: buttons.insightsView };
         Object.values(views).forEach(v => v.classList.add('hidden'));
@@ -824,6 +980,7 @@
     }
 
     async function displayResults(data) {
+        audio.play('success', { volume: 0.6 });
         // Reset highlight state
         appState.originalHighlightedHTML = '';
         appState.userHighlightedHTML = '';
