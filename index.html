@@ -19,7 +19,6 @@
         .modal-overlay.visible .modal-content { transform: scale(1); }
         .loader { border: 5px solid #e2e8f0; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         .loader.analysis { border-top: 5px solid #3b82f6; }
-        .loader.typo-check { border-top: 5px solid #f59e0b; }
         .small-loader { width: 18px; height: 18px; border: 2px solid #94a3b8; border-top-color: #475569; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .progress-bar-fill { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -28,7 +27,6 @@
         #translation-input { position: relative; z-index: 2; background-color: transparent; color: #1e293b; resize: none; font-size: 1rem; }
         .highlighter { position: absolute; top: 0; left: 0; z-index: 1; color: transparent; }
         .highlighter mark, #compare-original mark, #compare-user mark { background-color: transparent; padding: 0; margin: 0; }
-        mark.typo { background: linear-gradient(180deg, transparent 65%, rgba(250, 204, 21, 0.7) 65%); }
         mark.highlight-sangat-buruk { background: linear-gradient(180deg, transparent 65%, rgba(239, 68, 68, 0.7) 65%); }
         mark.highlight-buruk { background: linear-gradient(180deg, transparent 65%, rgba(249, 115, 22, 0.7) 65%); }
         mark.highlight-cukup { background: linear-gradient(180deg, transparent 65%, rgba(234, 179, 8, 0.7) 65%); }
@@ -381,7 +379,6 @@
         statusMessageTimeout: null,
         sortedAiTranslations: [],
         currentAiTranslationIndex: 0,
-        lastTypoCheckedText: '',
         previousFinalScore: null,
         exam: null,
         onConfirmAction: null
@@ -390,7 +387,12 @@
     // --- New AI Model Configuration ---
     const API_KEY = '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';
     const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    const MODEL_NAME = 'qwen/qwen3-32b';
+
+    // Model for general tasks (exercise generation, evaluation)
+    const GENERAL_MODEL_NAME = 'qwen/qwen3-32b';
+
+    // Model for insights and highlighting
+    const INSIGHTS_MODEL_NAME = 'openai/gpt-oss-120b';
 
     const ICONS = { CHEVRON: `<svg class="chevron-icon text-slate-400" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>` };
     const configOptions = { 
@@ -417,7 +419,7 @@
     const fetchWithBackoff = async (prompt, expectJson = false) => {
         const payload = {
             messages: [{ role: "user", content: prompt }],
-            model: MODEL_NAME,
+            model: GENERAL_MODEL_NAME,
             temperature: 0.6,
             max_completion_tokens: 4096,
             top_p: 0.95,
@@ -479,6 +481,74 @@
             }
         }
     };
+
+    const fetchInsightsWithBackoff = async (prompt, expectJson = false) => {
+        const payload = {
+            messages: [{ role: "user", content: prompt }],
+            model: INSIGHTS_MODEL_NAME,
+            temperature: 1,
+            max_completion_tokens: 8192,
+            top_p: 1,
+            stream: false, // User provided `true`, but the app expects a single JSON object. Sticking with `false`.
+            reasoning_effort: "medium",
+            stop: null
+        };
+
+        if (expectJson) {
+            payload.response_format = { type: "json_object" };
+        }
+
+        let delay = 1000;
+        for (let i = 0; i < 5; i++) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const content = result.choices?.[0]?.message?.content;
+                    if (!content) {
+                        console.error("Invalid response structure:", result);
+                        throw new Error("Invalid response structure from new API.");
+                    }
+                    if (expectJson) {
+                        try {
+                            const cleanedContent = content.replace(/^```json\s*|```\s*$/g, '').trim();
+                            return JSON.parse(cleanedContent);
+                        } catch (e) {
+                            console.error("Failed to parse JSON from AI response:", e);
+                            console.error("Raw content received:", content);
+                            throw new Error("AI did not return valid JSON.");
+                        }
+                    }
+                    return content;
+                }
+
+                if (response.status >= 500) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                    continue;
+                }
+
+                const errorBody = await response.text();
+                console.error("API Error Body:", errorBody);
+                throw new Error(`API request failed with status: ${response.status}`);
+
+            } catch (error) {
+                console.error(`Attempt ${i + 1} failed:`, error);
+                if (i === 4) throw error;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+        }
+    };
+
     const getScoreAttributes = (score) => {
         if (score >= 90) return { text: 'text-blue-600', stroke: 'stroke-blue-500', bg: 'bg-blue-500', title: 'Luar Biasa' };
         if (score >= 80) return { text: 'text-green-600', stroke: 'stroke-green-500', bg: 'bg-green-500', title: 'Sangat Baik' };
@@ -611,7 +681,6 @@
     // --- Logika Utama Aplikasi ---
     function setupPracticeScreen(text, duration, title, examInfo = null) {
         appState.originalSourceText = text;
-        appState.lastTypoCheckedText = '';
 
         if (examInfo) {
             practiceElements.headerTitle.textContent = "";
@@ -701,26 +770,11 @@
     async function handleSubmit() { 
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         const currentTranslation = practiceElements.translationInput.value.trim(); 
-        if (!currentTranslation) { showStatusMessage("Silakan isi terjemahan Anda terlebih dahulu.", "text-yellow-800"); return; } 
-        if (appState.lastTypoCheckedText && currentTranslation === appState.lastTypoCheckedText) { 
-            await performFullEvaluation(currentTranslation); return; 
+        if (!currentTranslation) {
+            showStatusMessage("Silakan isi terjemahan Anda terlebih dahulu.", "text-yellow-800");
+            return;
         } 
-        showLoader(true, "Mendeteksi typo...", 'typo-check'); 
-        try { 
-            const data = await fetchWithBackoff(getTypoPrompt(currentTranslation), true);
-            if (data.errors && data.errors.length > 0) { 
-                appState.lastTypoCheckedText = currentTranslation; 
-                updateHighlighter(currentTranslation, data.errors); 
-                showStatusMessage(`Ditemukan ${data.errors.length} typo. Perbaiki atau kirim lagi untuk melanjutkan.`, "bg-yellow-100 text-yellow-800 font-semibold rounded-lg py-1 px-3"); showLoader(false); 
-            } else { 
-                appState.lastTypoCheckedText = ''; 
-                await performFullEvaluation(currentTranslation); 
-            } 
-        } catch (error) { 
-            console.error("Gagal memeriksa typo:", error); 
-            showStatusMessage("Gagal memeriksa typo, evaluasi dilanjutkan.", "bg-red-100 text-red-800 font-semibold rounded-lg py-1 px-3"); 
-            await performFullEvaluation(currentTranslation); 
-        } 
+        await performFullEvaluation(currentTranslation);
     }
     
     async function performFullEvaluation(translationToEvaluate) { 
@@ -750,7 +804,7 @@
             originalHighlightedHTML: '', userHighlightedHTML: '',
             isOriginalHighlighted: false, isUserHighlighted: false,
             timerInterval: null, statusMessageTimeout: null, sortedAiTranslations: [],
-            currentAiTranslationIndex: 0, lastTypoCheckedText: '', 
+            currentAiTranslationIndex: 0,
             previousFinalScore: null, exam: null, onConfirmAction: null
         };
         resultsElements.mainScoreSection.innerHTML = ''; 
@@ -873,7 +927,7 @@
 
     async function generateHighlightHTML(prompt) {
         try {
-            const highlightData = await fetchWithBackoff(prompt, true);
+            const highlightData = await fetchInsightsWithBackoff(prompt, true);
             return highlightData;
         } catch (error) {
             console.error("Gagal melakukan sorotan cerdas:", error);
@@ -1235,7 +1289,7 @@
         sections.forEach(s => s.innerHTML = ``);
         
         try {
-            const insightsData = await fetchWithBackoff(getVocabularyInsightsPrompt(), true);
+            const insightsData = await fetchInsightsWithBackoff(getVocabularyInsightsPrompt(), true);
             
             renderAnalysisSection(insightsData.analisis_terjemahan);
             renderLearningSection(insightsData.peluang_belajar);
@@ -1291,7 +1345,6 @@
         }
     };
     const getEvaluationPrompt = (originalText, userTranslation) => { const isEnId = configOptions.direction === 'en-id'; const sourceLang = isEnId ? 'Inggris' : 'Indonesia'; const targetLang = isEnId ? 'Indonesia' : 'Inggris'; return `You are an expert translation evaluator. Analyze the user's translation and provide a structured evaluation. All explanatory text must be in Indonesian. - Source Text (${sourceLang}): "${originalText}" - User's Translation (${targetLang}): "${userTranslation}" Provide your response ONLY as a valid JSON object. Follow this structure precisely: { "terjemahan_alternatif": ["string", "string", "string"], "umpan_balik_akhir_ai": "string", "umpan_balik_aspek": { "kelengkapan_teks": "string", "akurasi": "string", "kelancaran": "string", "gaya": "string", "teknis": "string" }, "kelengkapan_teks": { "skor": 0 }, "rincian_penilaian": { "akurasi": { "ketepatan_makna": 0, "ketepatan_informasi": 0, "kesesuaian_istilah": 0, "implikatur_dan_inferensi": 0, "kejelasan_dan_bebas_ambiguitas": 0 }, "kelancaran": { "tata_bahasa": 0, "struktur_kalimat": 0, "diksi": 0, "koherensi_dan_kohesi": 0 }, "gaya": { "tingkat_formalitas": 0, "nada_dan_suasana": 0, "idiom_dan_budaya": 0 }, "teknis": { "konsistensi_istilah": 0, "format_dan_tanda_baca": 0, "adaptasi_teknis_dan_lokalisasi": 0 } } } Instructions: 1. **terjemahan_alternatif**: Provide 3 valid, high-quality alternative translations in ${targetLang}. 2. **umpan_balik_akhir_ai**: Write a concise, constructive final feedback summary in Indonesian. 3. **umpan_balik_aspek**: For each aspect key, provide a brief, constructive feedback in Indonesian. 4. **kelengkapan_teks**: Score the completeness from 0-100. 5. **rincian_penilaian**: Score every single sub-aspect from 0-100. Do not omit any.`; };
-    const getTypoPrompt = (textToCheck) => { const language = configOptions.direction === 'en-id' ? 'Indonesian' : 'English'; return `You are a spell-checker for ${language} text. Analyze the text below. Respond ONLY with a valid JSON object. The object should have one key, "errors", which is an array of strings. Each string in the array should be a word that you identified as a typo or spelling error. If there are no errors, return an empty array: {"errors": []}. Text to check: "${textToCheck}"`; };
     const getOriginalHighlightPrompt = (original, user, correct) => { const isEnId = configOptions.direction === 'en-id'; const sourceLang = isEnId ? 'English' : 'Indonesian'; const targetLang = isEnId ? 'Indonesian' : 'Inggris'; return `You are a translation error analysis expert. Your task is to find errors in the user's translation by comparing it to the correct translation, and then map those errors back to the original ${sourceLang} text. 1. **Analyze:** Compare the user's ${targetLang} translation with the correct ${targetLang} translation. Identify specific phrases or words where the user's translation was inaccurate, awkward, or incorrect. 2. **Map to Source:** For each error found, identify the corresponding phrase or word in the original ${sourceLang} text. 3. **Assign Severity:** Assign a severity level to each error: 'cukup' (minor error), 'buruk' (significant error), 'sangat-buruk' (critical error). 4. **Format Response:** Respond ONLY with a valid JSON object. The object must have one key, "highlights", which is an array of objects. Each object must have two keys: "text" (the exact phrase from the original ${sourceLang} text) and "level" (the severity). If there are no significant errors, return an empty array. --- Original ${sourceLang} Text: "${original}" --- User's ${targetLang} Translation: "${user}" --- Correct ${targetLang} Translation: "${correct}" ---`; };
     const getUserHighlightPrompt = (user, correct) => { const isEnId = configOptions.direction === 'en-id'; const targetLang = isEnId ? 'Indonesian' : 'Inggris'; return `You are a language error analysis expert. Your task is to find errors directly within the user's ${targetLang} translation by comparing it to the correct translation. 1. **Analyze:** Compare the user's translation with the correct translation. Identify specific phrases or words where the user's translation is inaccurate, awkward, or incorrect. 2. **Assign Severity:** Assign a severity level to each error: 'cukup' (minor error), 'buruk' (significant error), 'sangat-buruk' (critical error). 3. **Format Response:** Respond ONLY with a valid JSON object. The object must have one key, "highlights", which is an array of objects. Each object must have two keys: "text" (the exact phrase from the **user's translation**) and "level" (the severity). If there are no significant errors, return an empty array. --- User's ${targetLang} Translation: "${user}" --- Correct ${targetLang} Translation: "${correct}" ---`; };
     const getVocabularyInsightsPrompt = () => { const isEnId = configOptions.direction === 'en-id'; const sourceLang = isEnId ? 'English' : 'Indonesian'; const targetLang = isEnId ? 'Indonesian' : 'English'; return `You are a language learning assistant. Analyze the following texts and provide vocabulary insights. All explanatory text (definisi, penjelasan, konteks, alasan) must be in Indonesian. - Source Text (${sourceLang}): "${appState.originalSourceText}" - User's Translation (${targetLang}): "${appState.userTranslationText}" Your task is to generate a valid JSON object that strictly follows this schema. DO NOT omit any keys, even if the array is empty. { "analisis_terjemahan": { "kesalahan_penerjemahan": [ { "teks_asli": "string", "terjemahan_pengguna": "string", "terjemahan_tepat": "string", "penjelasan": "string" } ], "perbaikan_diksi": [ { "teks_asli": "string", "kata_pengguna": "string", "saran": "string", "alasan": "string" } ] }, "peluang_belajar": { "kata_kunci": [ { "istilah": "string", "terjemahan": "string", "definisi": "string" } ], "istilah_sulit": [ { "istilah": "string", "terjemahan": "string", "definisi": "string" } ], "ungkapan_idiom": [ { "frasa": "string", "makna": "string", "penjelasan": "string" } ] }, "perluas_wawasan": { "jelajah_konteks": [ { "kata_kunci": "string", "contoh": [ { "konteks": "string", "kalimat_sumber": "string", "kalimat_terjemahan": "string" } ] } ], "spektrum_sinonim": [ { "kata_asli": "string", "alternatif": [ { "sinonim": "string", "konteks": "string" } ] } ] } } Instructions for each key: - **kesalahan_penerjemahan**: Identify 1-2 clear translation errors. - **perbaikan_diksi**: Find 1-2 instances where word choice could be improved. Provide the source text for context. - **kata_kunci**: Identify 2-3 common but important keywords. - **istilah_sulit**: Identify 1-2 difficult or domain-specific terms. - **ungkapan_idiom**: Identify any idioms. If none, return []. - **jelajah_konteks**: Pick 1 keyword and show 2 different uses. - **spektrum_sinonim**: Pick 1 keyword from the user's translation and provide 3 alternatives. Respond ONLY with the valid JSON object.`; };
