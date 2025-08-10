@@ -847,9 +847,17 @@
 
     // --- Logika Utama Aplikasi ---
     function setupPracticeScreen(text, duration, title, examInfo = null) {
-        // Lock the body scroll and set the screen height to prevent layout shifts
+        // --- Aggressive viewport takeover to prevent any page scroll ---
+        document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
-        screens.practice.style.height = '100dvh';
+        const screen = screens.practice;
+        screen.style.position = 'fixed';
+        screen.style.top = '0';
+        screen.style.left = '0';
+        screen.style.right = '0';
+        screen.style.bottom = '0';
+        screen.style.height = '100%'; // Fallback for older browsers
+        screen.style.height = '100dvh';
 
         appState.originalSourceText = text;
 
@@ -972,8 +980,17 @@
     
     function handleReset() { 
         audio.play('click');
-        document.body.style.overflow = 'auto'; // Restore body scroll
-        screens.practice.style.height = 'auto'; // Restore practice screen height
+        // --- Restore viewport to its normal state ---
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        const screen = screens.practice;
+        screen.style.position = 'static';
+        screen.style.top = 'auto';
+        screen.style.left = 'auto';
+        screen.style.right = 'auto';
+        screen.style.bottom = 'auto';
+        screen.style.height = 'auto';
+
         showScreen('mainMenu');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         appState = {
