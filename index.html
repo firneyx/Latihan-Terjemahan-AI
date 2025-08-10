@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Latihan Terjemahan AI</title>
+    <title>Latihan Terjemahan AI (Pembaruan Audio & AI)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; /* slate-50 */ color: #334155; /* slate-700 */ }
@@ -27,6 +26,7 @@
         #translation-input { position: relative; z-index: 2; background-color: transparent; color: #1e293b; resize: none; font-size: 1rem; }
         .highlighter { position: absolute; top: 0; left: 0; z-index: 1; color: transparent; }
         .highlighter mark, #compare-original mark, #compare-user mark { background-color: transparent; padding: 0; margin: 0; }
+        mark.typo { background: linear-gradient(180deg, transparent 65%, rgba(250, 204, 21, 0.7) 65%); }
         mark.highlight-sangat-buruk { background: linear-gradient(180deg, transparent 65%, rgba(239, 68, 68, 0.7) 65%); }
         mark.highlight-buruk { background: linear-gradient(180deg, transparent 65%, rgba(249, 115, 22, 0.7) 65%); }
         mark.highlight-cukup { background: linear-gradient(180deg, transparent 65%, rgba(234, 179, 8, 0.7) 65%); }
@@ -44,18 +44,15 @@
         .circular-progress-bg { fill: none; stroke: #e2e8f0; }
         .circular-progress-bar { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .circular-progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-        .slider-container { position: relative; padding-top: 1rem; height: 40px; }
-        .slider-container::before { content: ''; position: absolute; height: 8px; width: 100%; background: #e2e8f0; border-radius: 4px; top: 1rem; left: 0; pointer-events: none; z-index: 0; }
-        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; position: relative; z-index: 2; margin: 0; }
+        .slider-container { position: relative; padding-top: 1rem; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type="range"]:focus { outline: none; }
-        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: transparent; border-radius: 4px; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; border: 4px solid #fff; height: 24px; width: 24px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s ease-in-out; position: relative; z-index: 3; }
-        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); background: #2563eb; }
-        #duration-fill { position: absolute; height: 8px; background: #3b82f6; border-radius: 4px; top: 1rem; left: 0; pointer-events: none; z-index: 1; }
-        #duration-tooltip { position: absolute; top: -12px; background: #334155; color: white; padding: 5px 10px; border-radius: 6px; font-size: 0.875rem; font-weight: 600; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity 0.2s, transform 0.2s; white-space: nowrap; z-index: 4; }
-        .slider-container:hover #duration-tooltip, input[type="range"]:active ~ #duration-tooltip { opacity: 1; transform: translateX(-50%) translateY(-8px); }
-        #duration-ticks { position: absolute; width: calc(100% - 20px); left: 10px; top: calc(1rem + 4px); display: flex; justify-content: space-between; pointer-events: none; z-index: 0; }
-        #duration-ticks .tick { width: 2px; height: 8px; background-color: rgba(100, 116, 139, 0.4); border-radius: 1px; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e2e8f0; border-radius: 3px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; border: 3px solid #fff; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -7px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.1s ease-in-out; }
+        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.1); }
+        #duration-fill { position: absolute; height: 6px; background: #3b82f6; border-radius: 3px; top: 1rem; left: 0; pointer-events: none; }
+        #duration-tooltip { position: absolute; top: -10px; background: #334155; color: white; padding: 4px 8px; border-radius: 5px; font-size: 0.8rem; font-weight: 600; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
+        .slider-container:hover #duration-tooltip, input[type="range"]:active ~ #duration-tooltip { opacity: 1; }
         .dots-loader { display: flex; gap: 0.5rem; }
         .dots-loader div { width: 10px; height: 10px; background-color: #94a3b8; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .dots-loader .dot1 { animation-delay: -0.32s; }
@@ -121,7 +118,7 @@
                         <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Pengaturan Lanjutan</h2>
                         <div class="divide-y divide-slate-200 border-y border-slate-200">
                             <div class="flex justify-between items-center py-3.5 px-2"><label id="level-label" class="font-semibold text-slate-700">Tingkat Bahasa</label><div class="flex items-center gap-2"><button id="level-prev" class="control-btn p-2 hover:bg-slate-100 rounded-full disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg></button><span id="level-value" class="font-semibold text-slate-800 w-28 text-center">Menengah</span><button id="level-next" class="control-btn p-2 hover:bg-slate-100 rounded-full disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg></button></div></div>
-                            <div class="py-3.5 px-2 space-y-2"><div class="flex justify-between items-center"><label for="duration" class="font-semibold text-slate-700">Durasi</label><span id="duration-label" class="font-bold text-blue-600">Tak Terbatas</span></div><div class="slider-container"><div id="duration-fill"></div><input id="duration" type="range" min="0" max="1200" step="15" value="0" class="w-full"><div id="duration-tooltip"></div><div id="duration-ticks" class="absolute w-full flex justify-between top-3.5 -z-10 px-1 pointer-events-none"></div></div></div>
+                            <div class="py-3.5 px-2 space-y-2"><div class="flex justify-between items-center"><label for="duration" class="font-semibold text-slate-700">Durasi</label><span id="duration-label" class="font-bold text-blue-600">Tak Terbatas</span></div><div class="slider-container"><div id="duration-fill"></div><input id="duration" type="range" min="0" max="1200" step="15" value="0" class="w-full"><div id="duration-tooltip"></div></div></div>
                         </div>
                     </div>
                     <div>
@@ -166,27 +163,15 @@
         </div>
 
         <div id="practice-screen" class="app-screen hidden">
-            <div id="practice-container" class="flex flex-col">
+            <div id="practice-container" class="flex flex-col h-[calc(100vh-1rem)]">
                 <header class="py-2.5 border-b border-slate-200 flex-shrink-0"><div class="grid grid-cols-3 items-center"><div class="flex justify-start"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div><div class="text-center"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3><div id="timer-display" class="hidden items-center justify-center gap-2 text-sm font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div></div><div class="flex justify-end"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div></div></header>
                 <main class="py-6 flex-grow overflow-y-auto">
                     <div id="practice-info-display" class="hidden p-4 mb-4 bg-slate-100 rounded-lg space-y-1 text-sm"></div>
                     <p id="instruction-text" class="mb-4 text-slate-500"></p>
                     <div id="source-text" class="text-slate-700 leading-relaxed text-base md:text-lg space-y-4"></div>
                 </main>
+                <footer class="flex-shrink-0 bg-slate-50 pt-2 pb-12"><div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div><div class="flex flex-col gap-2"><div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm"><div class="highlighter"></div><textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea></div></div></footer>
             </div>
-            <footer class="fixed inset-x-0 bottom-0 z-10">
-                <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="bg-slate-50/95 backdrop-blur-sm border-t border-slate-200 rounded-t-lg p-3 shadow-t-lg">
-                        <div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div>
-                        <div class="flex flex-col gap-2">
-                            <div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm">
-                                <div class="highlighter"></div>
-                                <textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
 
         <div id="results-screen" class="app-screen hidden py-8 space-y-6">
@@ -286,35 +271,6 @@
     </div>
 
 <script type="module">
-    // --- Audio FX Utility ---
-    class AudioFX {
-        constructor(soundMap) {
-            this.sounds = {};
-            this.isMuted = false;
-            for (const key in soundMap) {
-                this.sounds[key] = new Audio(soundMap[key]);
-                this.sounds[key].preload = 'auto';
-            }
-        }
-
-        play(key, options = {}) {
-            if (this.isMuted) return;
-            const sound = this.sounds[key];
-            if (sound) {
-                const soundToPlay = sound.cloneNode();
-                soundToPlay.volume = options.volume || 0.5;
-                const pitch = options.pitch || (1.0 + (Math.random() - 0.5) * 0.15);
-                soundToPlay.playbackRate = pitch;
-                soundToPlay.play().catch(e => {});
-            }
-        }
-
-        toggleMute() {
-            this.isMuted = !this.isMuted;
-            return this.isMuted;
-        }
-    }
-
     // --- Elemen DOM ---
     const screens = { 
         mainMenu: document.getElementById('main-menu-screen'),
@@ -349,7 +305,7 @@
         styleInput: document.getElementById('style-input'),
         length: { prev: document.getElementById('length-prev'), next: document.getElementById('length-next'), value: document.getElementById('length-value') }, 
         level: { prev: document.getElementById('level-prev'), next: document.getElementById('level-next'), value: document.getElementById('level-value'), label: document.getElementById('level-label') }, 
-        duration: { slider: document.getElementById('duration'), label: document.getElementById('duration-label'), tooltip: document.getElementById('duration-tooltip'), fill: document.getElementById('duration-fill'), ticks: document.getElementById('duration-ticks') }
+        duration: { slider: document.getElementById('duration'), label: document.getElementById('duration-label'), tooltip: document.getElementById('duration-tooltip'), fill: document.getElementById('duration-fill') }
     };
     const stageIntroElements = {
         title: document.getElementById('stage-intro-title'),
@@ -422,33 +378,16 @@
         currentAiTranslationIndex: 0,
         previousFinalScore: null,
         exam: null,
-        onConfirmAction: null
+        onConfirmAction: null,
+        audioContextStarted: false,
+        loadingSound: null
     };
     
-    // --- Audio Initialization ---
-    // NOTE: These URLs are placeholders as the search tool was unavailable.
-    // They may not be functional and can be replaced with actual audio file URLs.
-    const audio = new AudioFX({
-        'click': 'https://cdn.pixabay.com/audio/2022/03/15/audio_245a44a049.mp3',
-        'click-alt': 'https://cdn.pixabay.com/audio/2022/03/10/audio_c848a87999.mp3',
-        'toggle': 'https://cdn.pixabay.com/audio/2022/11/18/audio_83a02b311d.mp3',
-        'start': 'https://cdn.pixabay.com/audio/2023/04/18/audio_5514f7b2a1.mp3',
-        'submit': 'https://cdn.pixabay.com/audio/2022/03/13/audio_2df4a41314.mp3',
-        'swoosh': 'https://cdn.pixabay.com/audio/2024/04/01/audio_55a758a002.mp3',
-        'popup': 'https://cdn.pixabay.com/audio/2022/10/28/audio_17b817357d.mp3',
-        'success': 'https://cdn.pixabay.com/audio/2022/11/18/audio_4734891b94.mp3',
-        'expand': 'https://cdn.pixabay.com/audio/2022/03/15/audio_245a44a049.mp3'
-    });
-
-    // --- New AI Model Configuration ---
+    // --- AI Model Configuration ---
     const API_KEY = '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';
     const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-    // Model for general tasks (exercise generation, evaluation)
-    const GENERAL_MODEL_NAME = 'qwen/qwen3-32b';
-
-    // Model for insights and highlighting
-    const INSIGHTS_MODEL_NAME = 'openai/gpt-oss-120b';
+    const QWEN_MODEL = 'qwen/qwen3-32b';
+    const OPENAI_MODEL = 'openai/gpt-oss-120b';
 
     const ICONS = { CHEVRON: `<svg class="chevron-icon text-slate-400" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>` };
     const configOptions = { 
@@ -471,17 +410,50 @@
         { type: "Akademik", domains: ["Ilmu Sosial & Humaniora", "Sains & Teknologi", "Kedokteran & Kesehatan", "Ekonomi & Bisnis", "Ilmu Komputer & IT", "Teknik & Rekayasa", "Psikologi & Perilaku", "Pendidikan & Pedagogi", "Sejarah & Arkeologi", "Filsafat & Etika", "Linguistik & Bahasa", "Seni & Sejarah Seni", "Ilmu Politik & Pemerintahan", "Studi Lingkungan", "Matematika & Statistik", "Fisika & Astronomi", "Kimia & Biokimia", "Antropologi & Sosiologi", "Studi Media & Komunikasi", "Hukum & Kriminologi"] }
     ];
 
+    // --- Audio FX Redesign ---
+    const audioFX = {
+        _init: async function() {
+            if (!appState.audioContextStarted && Tone.context.state !== 'running') {
+                await Tone.start();
+                console.log('Audio Context dimulai!');
+                appState.audioContextStarted = true;
+            }
+        },
+        navForward: () => { const synth = new Tone.MembraneSynth({ volume: -10, pitchDecay: 0.01, octaves: 4, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination(); synth.triggerAttackRelease('C2', '8n'); },
+        navSelect: () => { const synth = new Tone.Synth({ volume: -20, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.1 } }).toDestination(); synth.triggerAttackRelease('A4', '64n'); },
+        navBack: () => { const synth = new Tone.Synth({ volume: -15, oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.2 } }).toDestination(); const now = Tone.now(); synth.triggerAttackRelease('A3', '16n', now); synth.triggerAttackRelease('F#3', '16n', now + 0.08); },
+        navSwitch: () => { const noise = new Tone.NoiseSynth({ noise: { type: 'pink' }, volume: -22, envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).toDestination(); noise.triggerAttackRelease('32n'); },
+        scoreHigh: () => { const reverb = new Tone.Reverb(0.6).toDestination(); const synth = new Tone.PolySynth(Tone.Synth, { volume: -12, oscillator: { type: 'fatsawtooth', count: 3, spread: 40 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 } }).connect(reverb); synth.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '8n', Tone.now()); },
+        scoreMid: () => { const synth = new Tone.PolySynth(Tone.Synth, { volume: -14, oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 0.8 } }).toDestination(); synth.triggerAttackRelease(['C4', 'G4', 'C5'], '2n'); },
+        scoreLow: () => { const synth = new Tone.PolySynth(Tone.Synth, { volume: -16, oscillator: { type: 'square', detune: 6 }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).toDestination(); synth.triggerAttackRelease(['A3', 'A#3'], '8n'); },
+        error: () => { const synth = new Tone.NoiseSynth({ volume: -18, noise: { type: 'brown' }, envelope: { attack: 0.005, decay: 0.15, sustain: 0 } }).toDestination(); synth.triggerAttackRelease('8n'); },
+        notification: () => { const delay = new Tone.PingPongDelay("8n", 0.3).toDestination(); const synth = new Tone.FMSynth({ volume: -10, harmonicity: 2, modulationIndex: 3, envelope: { attack: 0.01, decay: 0.3 }, modulationEnvelope: { attack: 0.01, decay: 0.2 } }).connect(delay); synth.triggerAttackRelease('A5', '16n'); },
+        startLoading: () => { if (appState.loadingSound) return; const filter = new Tone.AutoFilter("8n").toDestination().start(); const synth = new Tone.Synth({ volume: -25, oscillator: { type: 'pulse' }, envelope: { attack: 0.1, decay: 0.2, sustain: 1, release: 0.5 } }).connect(filter); appState.loadingSound = { synth, filter }; synth.triggerAttack('C3'); },
+        stopLoading: () => { if (appState.loadingSound) { appState.loadingSound.synth.triggerRelease(); appState.loadingSound.filter.stop().dispose(); appState.loadingSound = null; } }
+    };
+
     // --- Fungsi Pembantu ---
-    const fetchWithBackoff = async (prompt, expectJson = false) => {
-        const payload = {
-            messages: [{ role: "user", content: prompt }],
-            model: GENERAL_MODEL_NAME,
-            temperature: 0.6,
-            max_completion_tokens: 4096,
-            top_p: 0.95,
-            stream: false,
-            stop: null
-        };
+    const fetchAI = async (model, prompt, expectJson = false) => {
+        let payload;
+        if (model === OPENAI_MODEL) {
+            payload = {
+                messages: [{ role: "user", content: prompt }],
+                model: model,
+                temperature: 1,
+                max_tokens: 8192,
+                top_p: 1,
+                stream: false,
+            };
+        } else { // Default to QWEN model
+            payload = {
+                messages: [{ role: "user", content: prompt }],
+                model: model,
+                temperature: 0.6,
+                max_completion_tokens: 4096,
+                top_p: 0.95,
+                stream: false,
+            };
+        }
         
         if (expectJson) {
             payload.response_format = { type: "json_object" };
@@ -492,10 +464,7 @@
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
                     body: JSON.stringify(payload)
                 });
 
@@ -504,7 +473,7 @@
                     const content = result.choices?.[0]?.message?.content;
                     if (!content) {
                         console.error("Invalid response structure:", result);
-                        throw new Error("Invalid response structure from new API.");
+                        throw new Error("Invalid response structure from API.");
                     }
                     if (expectJson) {
                         try {
@@ -537,74 +506,6 @@
             }
         }
     };
-
-    const fetchInsightsWithBackoff = async (prompt, expectJson = false) => {
-        const payload = {
-            messages: [{ role: "user", content: prompt }],
-            model: INSIGHTS_MODEL_NAME,
-            temperature: 1,
-            max_completion_tokens: 8192,
-            top_p: 1,
-            stream: false, // User provided `true`, but the app expects a single JSON object. Sticking with `false`.
-            reasoning_effort: "medium",
-            stop: null
-        };
-
-        if (expectJson) {
-            payload.response_format = { type: "json_object" };
-        }
-
-        let delay = 1000;
-        for (let i = 0; i < 5; i++) {
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    const content = result.choices?.[0]?.message?.content;
-                    if (!content) {
-                        console.error("Invalid response structure:", result);
-                        throw new Error("Invalid response structure from new API.");
-                    }
-                    if (expectJson) {
-                        try {
-                            const cleanedContent = content.replace(/^```json\s*|```\s*$/g, '').trim();
-                            return JSON.parse(cleanedContent);
-                        } catch (e) {
-                            console.error("Failed to parse JSON from AI response:", e);
-                            console.error("Raw content received:", content);
-                            throw new Error("AI did not return valid JSON.");
-                        }
-                    }
-                    return content;
-                }
-
-                if (response.status >= 500) {
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2;
-                    continue;
-                }
-
-                const errorBody = await response.text();
-                console.error("API Error Body:", errorBody);
-                throw new Error(`API request failed with status: ${response.status}`);
-
-            } catch (error) {
-                console.error(`Attempt ${i + 1} failed:`, error);
-                if (i === 4) throw error;
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
-            }
-        }
-    };
-
     const getScoreAttributes = (score) => {
         if (score >= 90) return { text: 'text-blue-600', stroke: 'stroke-blue-500', bg: 'bg-blue-500', title: 'Luar Biasa' };
         if (score >= 80) return { text: 'text-green-600', stroke: 'stroke-green-500', bg: 'bg-green-500', title: 'Sangat Baik' };
@@ -622,16 +523,11 @@
         if (score >= 70) return 'C';
         return 'Tidak Lulus';
     };
-    const showScreen = (screenName) => {
-        Object.values(screens).forEach(screen => screen.classList.add('hidden'));
-        screens[screenName].style.opacity = 0;
-        screens[screenName].classList.remove('hidden');
-        setTimeout(() => screens[screenName].style.opacity = 1, 50);
-        if (screenName !== 'mainMenu') {
-            audio.play('swoosh', { volume: 0.3, pitch: 1.1 });
-        }
+    const showScreen = (screenName) => { Object.values(screens).forEach(screen => screen.classList.add('hidden')); screens[screenName].style.opacity = 0; screens[screenName].classList.remove('hidden'); setTimeout(() => screens[screenName].style.opacity = 1, 50); };
+    const showLoader = (visible, text = "Memuat...", type = 'analysis') => { 
+        if(visible) { audioFX.startLoading(); } else { audioFX.stopLoading(); }
+        loader.text.textContent = text; loader.element.className = 'loader'; loader.element.classList.add(type); loader.container.classList.toggle('visible', visible); 
     };
-    const showLoader = (visible, text = "Memuat...", type = 'analysis') => { loader.text.textContent = text; loader.element.className = 'loader'; loader.element.classList.add(type); loader.container.classList.toggle('visible', visible); };
     const autoResizeTextarea = () => { const textarea = practiceElements.translationInput; textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; practiceElements.highlighter.style.height = `${textarea.scrollHeight}px`; };
     const updateHighlighter = (text, errors) => { let content = text.replace(/\n/g, '<br>'); if (errors && errors.length > 0) { const escapedErrors = errors.map(e => e.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')); const regex = new RegExp(`\\b(${escapedErrors.join('|')})\\b`, 'gi'); content = content.replace(regex, `<mark class="typo">$1</mark>`); } practiceElements.highlighter.innerHTML = content; };
     const showStatusMessage = (message, type) => { const statusEl = practiceElements.statusMessage; if (appState.statusMessageTimeout) clearTimeout(appState.statusMessageTimeout); statusEl.textContent = message; statusEl.classList.remove(...statusEl.classList); statusEl.classList.add('text-sm', 'mb-1', 'text-center', 'transition-all', 'duration-300', 'h-6'); if (type) { type.split(' ').forEach(cls => statusEl.classList.add(cls)); } else { statusEl.classList.add('text-slate-500'); } statusEl.classList.add('opacity-100'); if (message) { appState.statusMessageTimeout = setTimeout(() => { statusEl.classList.remove('opacity-100'); }, 4000); } else { statusEl.classList.remove('opacity-100'); } };
@@ -639,38 +535,23 @@
     const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; };
     const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
     const showConfirmationModal = (message, onConfirm, title = "Konfirmasi") => {
-        audio.play('popup', { volume: 0.6 });
         modal.message.textContent = message;
         modal.title.textContent = title;
         appState.onConfirmAction = onConfirm;
         modal.overlay.classList.add('visible');
     };
 
-    function applyFloatingFooterLayout() {
-        const container = document.getElementById('practice-container');
-        const mainEl = container?.querySelector('main');
-
-        if (container && mainEl) {
-            const vh = window.innerHeight;
-            container.style.height = `${vh}px`;
-            mainEl.style.paddingBottom = `120px`;
-        }
-    }
-
     // --- UI Update Functions ---
     const updateSelectorUI = (key) => { const config = configOptions[key]; settings[key].value.textContent = config.display[config.current]; settings[key].prev.disabled = config.current === 0; settings[key].next.disabled = config.current === config.options.length - 1; };
     const updateSegmentedControl = (toggleElement, selectedValue) => { const glider = toggleElement.querySelector('.glider'); const options = Array.from(toggleElement.querySelectorAll('.option')); const selectedIndex = options.findIndex(opt => opt.dataset.value === selectedValue.toString()); if (selectedIndex !== -1 && options[0]) { const optionWidth = options[0].offsetWidth; glider.style.transform = `translateX(${selectedIndex * optionWidth}px)`; options.forEach((opt, index) => { opt.style.color = index === selectedIndex ? '#1e293b' : '#475569'; }); } };
     const updateAiTranslationView = () => { if (appState.sortedAiTranslations.length === 0) return; resultsElements.compareAi.textContent = appState.sortedAiTranslations[appState.currentAiTranslationIndex].text; resultsElements.aiTranslationCounter.textContent = `${appState.currentAiTranslationIndex + 1} / 3`; buttons.prevAi.disabled = appState.currentAiTranslationIndex === 0; buttons.nextAi.disabled = appState.currentAiTranslationIndex === appState.sortedAiTranslations.length - 1; };
-    const updateDurationSlider = () => { const slider = settings.duration.slider; const tooltip = settings.duration.tooltip; const fill = settings.duration.fill; const value = parseInt(slider.value); const min = parseInt(slider.min); const max = parseInt(slider.max); if (value === 0) { settings.duration.label.textContent = 'Tak Terbatas'; tooltip.textContent = 'Tak Terbatas'; } else { const minutes = Math.floor(value / 60); const seconds = value % 60; const timeString = `${minutes}m ${seconds.toString().padStart(2, '0')}d`; settings.duration.label.textContent = timeString; tooltip.textContent = timeString; } const percent = max > min ? ((value - min) / (max - min)) * 100 : 0; fill.style.width = `${percent}%`; tooltip.style.left = `${percent}%`; };
-
-    const createDurationTicks = () => { const ticksContainer = settings.duration.ticks; if (!ticksContainer) return; ticksContainer.innerHTML = ''; const tickValues = [0, 300, 600, 900, 1200]; tickValues.forEach(() => { const tick = document.createElement('div'); tick.className = 'tick'; ticksContainer.appendChild(tick); }); };
+    const updateDurationSlider = () => { const slider = settings.duration.slider; const tooltip = settings.duration.tooltip; const fill = settings.duration.fill; const value = parseInt(slider.value); const min = parseInt(slider.min); const max = parseInt(slider.max); if (value === 0) { settings.duration.label.textContent = 'Tak Terbatas'; tooltip.textContent = 'Tak Terbatas'; } else { const minutes = Math.floor(value / 60); const seconds = value % 60; const timeString = `${minutes}m ${seconds.toString().padStart(2, '0')}d`; settings.duration.label.textContent = timeString; tooltip.textContent = timeString; } const percent = ((value - min) / (max - min)) * 100; fill.style.width = `${percent}%`; const thumbWidth = 20; const trackWidth = slider.offsetWidth; const thumbPosition = (percent / 100) * (trackWidth - thumbWidth) + (thumbWidth / 2); tooltip.style.left = `${thumbPosition}px`; };
 
     // --- Event Listeners ---
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
         const targetOption = e.target.closest('.option');
         if (!targetOption) return;
-
-        audio.play('toggle', { volume: 0.4 });
+        audioFX.navSelect();
         const selectedMode = targetOption.dataset.value;
         appState.currentMode = selectedMode;
         updateSegmentedControl(mainMenuElements.modeToggle, selectedMode);
@@ -690,7 +571,8 @@
     });
 
     buttons.mainStart.addEventListener('click', () => {
-        audio.play('start', { volume: 0.6 });
+        audioFX._init();
+        audioFX.navForward();
         if (appState.currentMode === 'free') {
             handleStartFreePractice();
         } else {
@@ -698,13 +580,9 @@
         }
     });
 
-    modal.cancelBtn.addEventListener('click', () => {
-        audio.play('click-alt', { volume: 0.5 });
-        modal.overlay.classList.remove('visible');
-    });
-
+    modal.cancelBtn.addEventListener('click', () => { audioFX.navBack(); modal.overlay.classList.remove('visible'); });
     modal.confirmBtn.addEventListener('click', () => {
-        audio.play('click', { volume: 0.6 });
+        audioFX.navForward();
         modal.overlay.classList.remove('visible');
         if (appState.onConfirmAction) {
             appState.onConfirmAction();
@@ -712,144 +590,55 @@
         }
     });
 
-    settings.duration.slider.addEventListener('input', () => {
-        updateDurationSlider();
-        const value = parseInt(settings.duration.slider.value);
-        const max = parseInt(settings.duration.slider.max);
-        const pitch = 1.0 + (value / max) * 0.5;
-        audio.play('click', { volume: 0.3, pitch: pitch });
-    });
-
-    settings.directionBtn.addEventListener('click', () => {
-        audio.play('toggle');
-        configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id';
-        const isEnId = configOptions.direction === 'en-id';
-        settings.langFrom.textContent = isEnId ? 'EN' : 'ID';
-        settings.langTo.textContent = isEnId ? 'ID' : 'EN';
-        settings.directionIcon.classList.toggle('rotate-180');
-        settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`;
-    });
-
-    settings.paragraphsToggle.addEventListener('click', (e) => {
-        const targetOption = e.target.closest('.option');
-        if (!targetOption) return;
-        audio.play('toggle', { volume: 0.4 });
-        configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10);
-        updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current);
-    });
-
-    const createSelectorHandler = (key, direction) => () => {
-        const config = configOptions[key];
-        const newIndex = config.current + direction;
-        if (newIndex >= 0 && newIndex < config.options.length) {
-            config.current = newIndex;
-            updateSelectorUI(key);
-            audio.play('click', { pitch: 1.0 + direction * 0.1 });
-        }
-    };
-
+    settings.directionBtn.addEventListener('click', () => { audioFX.navSelect(); configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id'; const isEnId = configOptions.direction === 'en-id'; settings.langFrom.textContent = isEnId ? 'EN' : 'ID'; settings.langTo.textContent = isEnId ? 'ID' : 'EN'; settings.directionIcon.classList.toggle('rotate-180'); settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`; });
+    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; audioFX.navSelect(); configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
+    const createSelectorHandler = (key, direction) => () => { audioFX.navSelect(); const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
     settings.length.prev.addEventListener('click', createSelectorHandler('length', -1));
     settings.length.next.addEventListener('click', createSelectorHandler('length', 1));
     settings.level.prev.addEventListener('click', createSelectorHandler('level', -1));
     settings.level.next.addEventListener('click', createSelectorHandler('level', 1));
-
     practiceElements.translationInput.addEventListener('input', () => { autoResizeTextarea(); updateHighlighter(practiceElements.translationInput.value, []); showStatusMessage('', ''); });
     practiceElements.translationInput.addEventListener('scroll', () => { practiceElements.highlighter.scrollTop = practiceElements.translationInput.scrollTop; });
-
-    stageIntroElements.startBtn.addEventListener('click', () => {
-        audio.play('start', { volume: 0.6 });
-        handleStartStagePractice();
-    });
-
-    buttons.headerSubmit.addEventListener('click', () => {
-        showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit());
-    });
-
-    buttons.backToMenuStage.addEventListener('click', () => {
-        audio.play('click-alt');
-        showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset());
-    });
-
-    buttons.backToMenuSummary.addEventListener('click', () => {
-        audio.play('click');
-        handleReset();
-    });
-
-    buttons.nextRound.addEventListener('click', () => {
-        audio.play('start');
-        handleNextRound();
-    });
-
+    stageIntroElements.startBtn.addEventListener('click', () => { audioFX.navForward(); handleStartStagePractice(); });
+    buttons.headerSubmit.addEventListener('click', () => { audioFX.navSelect(); showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit()); });
+    buttons.backToMenuStage.addEventListener('click', () => { audioFX.navBack(); showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset()); });
+    buttons.backToMenuSummary.addEventListener('click', () => { audioFX.navForward(); handleReset(); });
+    buttons.nextRound.addEventListener('click', () => { audioFX.navForward(); handleNextRound(); });
     buttons.backPractice.addEventListener('click', () => {
-        audio.play('click-alt');
+        audioFX.navBack();
         const message = appState.currentMode === 'exam' 
             ? "Keluar dari tahap ini akan mengakhiri seluruh sesi ujian. Apakah Anda yakin?" 
             : "Apakah Anda yakin ingin keluar? Progress latihan ini akan hilang.";
         showConfirmationModal(message, () => handleReset());
     });
-
-    buttons.aspectView.addEventListener('click', () => switchView('aspect'));
-    buttons.comparisonView.addEventListener('click', () => switchView('comparison'));
-    buttons.insightsView.addEventListener('click', () => switchView('insights'));
-
-    buttons.generateInsights.addEventListener('click', () => {
-        audio.play('start', { pitch: 1.2 });
-        handleGenerateInsights();
-    });
-
-    buttons.prevAi.addEventListener('click', () => {
-        if (appState.currentAiTranslationIndex > 0) {
-            audio.play('click', { volume: 0.4, pitch: 0.9 });
-            appState.currentAiTranslationIndex--;
-            updateAiTranslationView();
-        }
-    });
-
-    buttons.nextAi.addEventListener('click', () => {
-        if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) {
-            audio.play('click', { volume: 0.4, pitch: 1.1 });
-            appState.currentAiTranslationIndex++;
-            updateAiTranslationView();
-        }
-    });
-
-    resultsElements.aspectView.addEventListener('click', (e) => {
-        const header = e.target.closest('.aspect-header');
-        if (header) {
-            const parentSection = header.closest('section');
-            if (parentSection) {
-                const details = parentSection.querySelector('.focus-details');
-                if (details) {
-                    audio.play('expand', { volume: 0.4, pitch: details.classList.contains('expanded') ? 0.9 : 1.1 });
-                    header.classList.toggle('expanded');
-                    details.classList.toggle('expanded');
-                }
-            }
-        }
-    });
-
+    buttons.aspectView.addEventListener('click', () => { audioFX.navSwitch(); switchView('aspect'); });
+    buttons.comparisonView.addEventListener('click', () => { audioFX.navSwitch(); switchView('comparison'); });
+    buttons.insightsView.addEventListener('click', () => { audioFX.navSwitch(); switchView('insights'); });
+    buttons.generateInsights.addEventListener('click', () => { audioFX.navForward(); handleGenerateInsights(); });
+    buttons.prevAi.addEventListener('click', () => { audioFX.navSelect(); if (appState.currentAiTranslationIndex > 0) { appState.currentAiTranslationIndex--; updateAiTranslationView(); } });
+    buttons.nextAi.addEventListener('click', () => { audioFX.navSelect(); if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) { appState.currentAiTranslationIndex++; updateAiTranslationView(); } });
+    resultsElements.aspectView.addEventListener('click', (e) => { const header = e.target.closest('.aspect-header'); if (header) { audioFX.navSelect(); const parentSection = header.closest('section'); if (parentSection) { const details = parentSection.querySelector('.focus-details'); if (details) { header.classList.toggle('expanded'); details.classList.toggle('expanded'); } } } });
     stageIntroElements.domainSelection.addEventListener('click', e => {
         const card = e.target.closest('.domain-card');
         if (card) {
-            audio.play('click');
+            audioFX.navSelect();
             document.querySelectorAll('.domain-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             appState.exam.selectedDomain = card.dataset.domain;
             stageIntroElements.domainError.classList.add('hidden');
         }
     });
-
     resultsElements.comparisonView.addEventListener('click', (e) => {
         const reorderBtn = e.target.closest('.reorder-btn');
         const highlightBtn = e.target.closest('.highlight-trigger-btn');
         if (reorderBtn) {
-            audio.play('click-alt', { volume: 0.5 });
+            audioFX.navSelect();
             const section = reorderBtn.closest('section');
             const direction = reorderBtn.dataset.direction;
             reorderTextSections(section, direction);
         }
         if (highlightBtn) {
-            audio.play('submit');
+            audioFX.navSelect();
             handleManualHighlight(highlightBtn);
         }
     });
@@ -857,7 +646,7 @@
     // --- Logika Utama Aplikasi ---
     function setupPracticeScreen(text, duration, title, examInfo = null) {
         appState.originalSourceText = text;
-
+        
         if (examInfo) {
             practiceElements.headerTitle.textContent = "";
             practiceElements.infoDisplay.innerHTML = `
@@ -885,7 +674,6 @@
         autoResizeTextarea();
         showStatusMessage('', '');
         showScreen('practice');
-        applyFloatingFooterLayout();
         if (duration > 0) {
             practiceElements.timer.classList.remove('hidden');
             practiceElements.timer.classList.add('flex');
@@ -899,10 +687,9 @@
     async function generatePracticeText(prompt, isExam = false) {
         showLoader(true, "Mempersiapkan latihan...", 'analysis');
         try {
-            let rawText = await fetchWithBackoff(prompt);
+            let rawText = await fetchAI(QWEN_MODEL, prompt);
             if (!rawText) throw new Error("Invalid response from AI.");
 
-            // Membersihkan teks dari blok <think> dan markdown yang tidak diinginkan
             rawText = rawText
                 .replace(/<think>[\s\S]*?<\/think>/g, '')
                 .replace(/^```[a-zA-Z]*\n?/g, '')
@@ -914,20 +701,18 @@
                 let topic = "Topik Umum";
                 let text = rawText;
 
-                // Memisahkan topik dari teks soal dengan lebih andal
                 const topicIndex = lines.findIndex(line => line.startsWith("TOPIK: "));
                 if (topicIndex !== -1) {
                     topic = lines[topicIndex].substring(7).trim();
-                    // Menggabungkan semua baris setelah baris topik
                     text = lines.slice(topicIndex + 1).join('\n').trim();
                 }
                 return { topic, text };
             } else {
-                // Mengembalikan teks yang sudah dibersihkan untuk latihan bebas
                 return { topic: null, text: rawText };
             }
         } catch (error) {
             console.error("Gagal membuat teks latihan:", error);
+            audioFX.error();
             showScreen('mainMenu'); 
             return null;
         } finally {
@@ -940,19 +725,19 @@
         const { text } = await generatePracticeText(prompt, false);
         if (text) {
             const duration = parseInt(settings.duration.slider.value);
-            setupPracticeScreen(text, duration, "", null);
+            setupPracticeScreen(text, duration, "Latihan Bebas", null);
         }
     }
 
     async function handleSubmit() { 
-        audio.play('submit');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         const currentTranslation = practiceElements.translationInput.value.trim(); 
-        if (!currentTranslation) {
-            showStatusMessage("Silakan isi terjemahan Anda terlebih dahulu.", "text-yellow-800");
-            return;
+        if (!currentTranslation) { 
+            audioFX.error(); 
+            showStatusMessage("Silakan isi terjemahan Anda terlebih dahulu.", "text-yellow-800"); 
+            return; 
         } 
-        await performFullEvaluation(currentTranslation);
+        await performFullEvaluation(currentTranslation); 
     }
     
     async function performFullEvaluation(translationToEvaluate) { 
@@ -961,11 +746,12 @@
         showLoader(true, "AI sedang menganalisis...", 'analysis'); 
         updateHighlighter(appState.userTranslationText, []); 
         try { 
-            const evaluationData = await fetchWithBackoff(getEvaluationPrompt(appState.originalSourceText, appState.userTranslationText), true);
+            const evaluationData = await fetchAI(QWEN_MODEL, getEvaluationPrompt(appState.originalSourceText, appState.userTranslationText), true);
             await displayResults(evaluationData); 
             showScreen('results'); 
             switchView('aspect'); 
         } catch (error) { 
+            audioFX.error();
             console.error("Gagal mengevaluasi terjemahan:", error); 
             showScreen('results'); 
             resultsElements.mainScoreSection.innerHTML = `<p class="text-red-600">Maaf, terjadi kesalahan saat mengevaluasi jawaban Anda. Silakan coba lagi.</p>`; 
@@ -975,15 +761,15 @@
     }
     
     function handleReset() { 
-        audio.play('click');
         showScreen('mainMenu');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         appState = {
+            ...appState,
             currentMode: 'free', originalSourceText: '', userTranslationText: '',
             originalHighlightedHTML: '', userHighlightedHTML: '',
             isOriginalHighlighted: false, isUserHighlighted: false,
             timerInterval: null, statusMessageTimeout: null, sortedAiTranslations: [],
-            currentAiTranslationIndex: 0,
+            currentAiTranslationIndex: 0, 
             previousFinalScore: null, exam: null, onConfirmAction: null
         };
         resultsElements.mainScoreSection.innerHTML = ''; 
@@ -994,7 +780,6 @@
     }
     
     function switchView(viewName) { 
-        audio.play('swoosh', { volume: 0.4 });
         const views = { aspect: resultsElements.aspectView, comparison: resultsElements.comparisonView, insights: resultsElements.insightsView };
         const viewButtons = { aspect: buttons.aspectView, comparison: buttons.comparisonView, insights: buttons.insightsView };
         Object.values(views).forEach(v => v.classList.add('hidden'));
@@ -1004,15 +789,12 @@
     }
 
     async function displayResults(data) {
-        audio.play('success', { volume: 0.6 });
-        // Reset highlight state
         appState.originalHighlightedHTML = '';
         appState.userHighlightedHTML = '';
         appState.isOriginalHighlighted = false;
         appState.isUserHighlighted = false;
         appState.currentAiTranslationIndex = 0;
 
-        // Reset highlight buttons UI
         document.querySelectorAll('.highlight-trigger-btn').forEach(btn => {
             btn.classList.remove('loading');
             btn.querySelector('.btn-text').textContent = 'Sorot Kesalahan';
@@ -1032,6 +814,10 @@
         const skor_kelengkapan = data.kelengkapan_teks.skor;
         const finalScore = Math.round(skor_aspek_berbobot * (skor_kelengkapan / 100));
         
+        if (finalScore >= 85) { audioFX.scoreHigh(); } 
+        else if (finalScore >= 50) { audioFX.scoreMid(); }
+        else { audioFX.scoreLow(); }
+
         const finalScoreAttr = getScoreAttributes(finalScore);
         
         let scoreComparisonHTML = '';
@@ -1096,11 +882,11 @@
         if (appState.currentMode === 'free') {
             appState.previousFinalScore = finalScore;
             resultsElements.footer.innerHTML = `<button id="retry-btn" class="w-full sm:w-1/2 bg-slate-100 text-slate-700 font-bold py-3 px-4 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-slate-300 transition-all">Evaluasi Ulang</button><button id="reset-btn" class="w-full sm:w-1/2 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all">Menu Utama</button>`;
-            document.getElementById('retry-btn').addEventListener('click', handleRetrySameExercise);
-            document.getElementById('reset-btn').addEventListener('click', handleReset);
+            document.getElementById('retry-btn').addEventListener('click', () => { audioFX.navSelect(); handleRetrySameExercise(); });
+            document.getElementById('reset-btn').addEventListener('click', () => { audioFX.navForward(); handleReset(); });
         } else if (appState.currentMode === 'exam') {
             resultsElements.footer.innerHTML = `<button id="next-stage-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all">Lanjutkan</button>`;
-            document.getElementById('next-stage-btn').addEventListener('click', () => processStageResult(finalScore));
+            document.getElementById('next-stage-btn').addEventListener('click', () => { audioFX.navForward(); processStageResult(finalScore); });
         }
 
         updateReorderButtons();
@@ -1108,9 +894,10 @@
 
     async function generateHighlightHTML(prompt) {
         try {
-            const highlightData = await fetchInsightsWithBackoff(prompt, true);
+            const highlightData = await fetchAI(OPENAI_MODEL, prompt, true);
             return highlightData;
         } catch (error) {
+            audioFX.error();
             console.error("Gagal melakukan sorotan cerdas:", error);
             return null;
         }
@@ -1120,7 +907,6 @@
         let generatedHTML = baseText;
         if (highlightData && highlightData.highlights && Array.isArray(highlightData.highlights) && highlightData.highlights.length > 0) {
             const levelToClass = {'sangat-buruk': 'highlight-sangat-buruk', 'buruk': 'highlight-buruk', 'cukup': 'highlight-cukup'};
-            // Sort by length descending to avoid nested marking issues
             highlightData.highlights.sort((a, b) => b.text.length - a.text.length);
             highlightData.highlights.forEach(item => {
                 const escapedText = item.text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -1139,7 +925,6 @@
         const baseText = target === 'original' ? appState.originalSourceText : appState.userTranslationText;
         const highlightedHTMLState = target === 'original' ? 'originalHighlightedHTML' : 'userHighlightedHTML';
         
-        // Toggle off if already highlighted
         if (isHighlighted) {
             textElement.innerHTML = baseText.replace(/\n/g, '<br>');
             buttonEl.querySelector('.btn-text').textContent = 'Sorot Kesalahan';
@@ -1148,7 +933,6 @@
             return;
         }
 
-        // Use cached HTML if available
         if (appState[highlightedHTMLState]) {
             textElement.innerHTML = appState[highlightedHTMLState];
             buttonEl.querySelector('.btn-text').textContent = 'Sembunyikan Sorotan';
@@ -1157,7 +941,6 @@
             return;
         }
         
-        // Generate new highlight
         buttonEl.classList.add('loading');
         buttonEl.disabled = true;
 
@@ -1203,7 +986,7 @@
     function handleRetrySameExercise() { 
         resultsElements.insightsPlaceholder.classList.remove('hidden'); 
         resultsElements.insightsContent.classList.add('hidden');
-        setupPracticeScreen(appState.originalSourceText, parseInt(settings.duration.slider.value), "", null);
+        setupPracticeScreen(appState.originalSourceText, parseInt(settings.duration.slider.value), "Latihan Bebas", null); 
     }
 
     // --- Exam Mode Logic ---
@@ -1219,7 +1002,7 @@
                 highestScore: 0,
                 passedInRound: -1,
                 finalScore: 0,
-                status: 'pending' // 'pending', 'failed', 'passed'
+                status: 'pending' 
             }))
         };
         startNextStageFromQueue();
@@ -1231,6 +1014,8 @@
             showRoundRecap();
             return;
         }
+        
+        audioFX.notification();
 
         const stageIndex = appState.exam.stagesToAttemptInCurrentRound[appState.exam.currentStageIndexInQueue];
         const stage = appState.exam.stages[stageIndex];
@@ -1263,6 +1048,7 @@
 
     async function handleStartStagePractice() {
         if (!appState.exam.selectedDomain) {
+            audioFX.error();
             stageIntroElements.domainError.classList.remove('hidden');
             return;
         }
@@ -1293,7 +1079,6 @@
     }
 
     function processStageResult(score) {
-        // Reset insights view before moving on.
         resultsElements.insightsPlaceholder.classList.remove('hidden');
         resultsElements.insightsContent.classList.add('hidden');
         resultsElements.analysisSection.innerHTML = '';
@@ -1350,12 +1135,15 @@
         const failedStages = appState.exam.stages.filter(s => s.status === 'failed');
         
         if (failedStages.length === 0) {
+            audioFX.scoreHigh();
             roundRecapElements.message.textContent = "Selamat! Semua stage telah berhasil diselesaikan.";
             roundRecapElements.nextBtn.textContent = "Lihat Laporan Akhir";
         } else if (roundIndex >= examRoundsConfig.length - 1) {
+            audioFX.scoreMid();
             roundRecapElements.message.textContent = "Ujian telah selesai. Beberapa stage tidak berhasil diselesaikan.";
             roundRecapElements.nextBtn.textContent = "Lihat Laporan Akhir";
         } else {
+            audioFX.notification();
             const nextRoundName = examRoundsConfig[roundIndex + 1].name;
             roundRecapElements.message.textContent = `Stage yang tidak lulus akan diulang pada putaran ${nextRoundName}.`;
             roundRecapElements.nextBtn.textContent = `Lanjutkan ke ${nextRoundName}`;
@@ -1470,13 +1258,14 @@
         sections.forEach(s => s.innerHTML = ``);
         
         try {
-            const insightsData = await fetchInsightsWithBackoff(getVocabularyInsightsPrompt(), true);
+            const insightsData = await fetchAI(OPENAI_MODEL, getVocabularyInsightsPrompt(), true);
             
             renderAnalysisSection(insightsData.analisis_terjemahan);
             renderLearningSection(insightsData.peluang_belajar);
             renderExplorationSection(insightsData.perluas_wawasan);
 
         } catch (error) {
+            audioFX.error();
             console.error("Gagal membuat wawasan kosakata:", error);
             resultsElements.insightsContent.innerHTML = `<p class="text-red-600 p-4">Maaf, gagal memuat wawasan kosakata. Silakan coba lagi.</p>`;
         } finally {
@@ -1536,7 +1325,6 @@
         updateSelectorUI('level'); 
         updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); 
         updateDurationSlider();
-        createDurationTicks();
         settings.level.label.textContent = `Tingkat Bahasa ${configOptions.direction === 'en-id' ? 'Inggris' : 'Indonesia'}`;
         
         appState.currentMode = 'free';
@@ -1559,9 +1347,10 @@
     function initializeApp() {
         initializeAppUI();
         showScreen('mainMenu');
+        settings.duration.slider.addEventListener('input', () => { audioFX.navSelect(); updateDurationSlider(); });
     }
     
-    initializeApp();
+    document.addEventListener('DOMContentLoaded', initializeApp);
 </script>
 </body>
 </html>
