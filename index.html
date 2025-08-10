@@ -21,9 +21,17 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .progress-bar-fill { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
         .input-wrapper { position: relative; width: 100%; }
-        .highlighter, #translation-input { width: 100%; min-height: 48px; max-height: 120px; padding: 0.75rem; border-radius: 0.75rem; font-family: inherit; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow-y: auto; }
-        #translation-input { position: relative; z-index: 2; background-color: transparent; color: #1e293b; resize: none; font-size: 1rem; }
-        .highlighter { position: absolute; top: 0; left: 0; z-index: 1; color: transparent; }
+        .highlighter, #translation-input { width: 100%; min-height: 60px; padding: 1rem; border-radius: 0.75rem; font-family: inherit; white-space: pre-wrap; word-wrap: break-word; }
+        #translation-input {
+            position: relative; z-index: 2; background-color: transparent; color: #1e293b;
+            resize: none; font-size: 1.125rem; line-height: 1.7;
+            flex-grow: 1; /* Allow textarea to grow */
+        }
+        .highlighter {
+            position: absolute; top: 0; left: 0; z-index: 1; color: transparent;
+            font-size: 1.125rem; line-height: 1.7;
+            overflow-y: auto; /* Allow highlighter to scroll */
+        }
         .highlighter mark, #compare-original mark, #compare-user mark { background-color: transparent; padding: 0; margin: 0; }
         mark.typo { background: linear-gradient(180deg, transparent 65%, rgba(250, 204, 21, 0.7) 65%); }
         mark.highlight-sangat-buruk { background: linear-gradient(180deg, transparent 65%, rgba(239, 68, 68, 0.7) 65%); }
@@ -162,14 +170,44 @@
         </div>
 
         <div id="practice-screen" class="app-screen hidden">
-            <div id="practice-container" class="flex flex-col h-[calc(100vh-1rem)]">
-                <header class="py-2.5 border-b border-slate-200 flex-shrink-0"><div class="grid grid-cols-3 items-center"><div class="flex justify-start"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div><div class="text-center"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3><div id="timer-display" class="hidden items-center justify-center gap-2 text-sm font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div></div><div class="flex justify-end"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div></div></header>
-                <main class="py-6 flex-grow overflow-y-auto">
-                    <div id="practice-info-display" class="hidden p-4 mb-4 bg-slate-100 rounded-lg space-y-1 text-sm"></div>
-                    <p id="instruction-text" class="mb-4 text-slate-500"></p>
-                    <div id="source-text" class="text-slate-700 leading-relaxed text-base md:text-lg space-y-4"></div>
-                </main>
-                <footer class="flex-shrink-0 bg-slate-50 pt-2 pb-12"><div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div><div class="flex flex-col gap-2"><div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm"><div class="highlighter"></div><textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea></div></div></footer>
+            <div id="practice-container" class="flex flex-col md:flex-row h-screen md:h-[calc(100vh-1rem)]">
+                <header class="py-2.5 border-b border-slate-200 flex-shrink-0 md:hidden">
+                    <div class="grid grid-cols-3 items-center">
+                        <div class="flex justify-start"><button id="back-btn-mobile" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div>
+                        <div class="text-center"><h3 id="practice-header-title-mobile" class="font-semibold text-slate-800 text-lg"></h3></div>
+                        <div class="flex justify-end"><button id="header-submit-btn-mobile" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div>
+                    </div>
+                </header>
+
+                <div class="w-full md:w-1/2 flex flex-col">
+                    <header class="hidden md:flex py-2.5 border-b border-slate-200 flex-shrink-0 items-center">
+                        <div class="flex justify-start w-1/3"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div>
+                        <div class="text-center w-1/3"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3></div>
+                        <div class="w-1/3"></div>
+                    </header>
+                    <main class="p-6 flex-grow overflow-y-auto">
+                        <div id="practice-info-display" class="hidden p-4 mb-4 bg-slate-100 rounded-lg space-y-1 text-sm"></div>
+                        <p id="instruction-text" class="mb-4 text-slate-600"></p>
+                        <div id="source-text" class="text-slate-800 leading-loose text-lg md:text-xl space-y-5"></div>
+                    </main>
+                </div>
+
+                <div class="w-full md:w-1/2 flex flex-col bg-slate-50 border-l border-slate-200">
+                    <header class="hidden md:flex py-2.5 border-b border-slate-200 flex-shrink-0 items-center">
+                        <div class="w-1/3"></div>
+                        <div class="text-center w-1/3">
+                            <div id="timer-display" class="hidden items-center justify-center gap-2 font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div>
+                        </div>
+                        <div class="flex justify-end w-1/3"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div>
+                    </header>
+                    <footer class="flex flex-col flex-grow p-4 md:p-6">
+                        <div id="status-message" class="text-sm mb-2 text-center opacity-0 transition-all duration-300 h-6 flex-shrink-0"></div>
+                        <div class="input-wrapper flex-grow flex flex-col bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            <div class="highlighter"></div>
+                            <textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent w-full h-full" placeholder="Ketik terjemahan Anda..."></textarea>
+                        </div>
+                    </footer>
+                </div>
             </div>
         </div>
 
@@ -314,7 +352,7 @@
         domainError: document.getElementById('domain-error'),
         startBtn: document.getElementById('start-stage-btn')
     };
-    const practiceElements = { timer: document.getElementById('timer-display'), timerLabel: document.getElementById('timer-label'), headerTitle: document.getElementById('practice-header-title'), infoDisplay: document.getElementById('practice-info-display'), instructionText: document.getElementById('instruction-text'), sourceText: document.getElementById('source-text'), translationInput: document.getElementById('translation-input'), highlighter: document.querySelector('.highlighter'), statusMessage: document.getElementById('status-message') };
+    const practiceElements = { timer: document.getElementById('timer-display'), timerLabel: document.getElementById('timer-label'), headerTitle: document.getElementById('practice-header-title'), headerTitleMobile: document.getElementById('practice-header-title-mobile'), infoDisplay: document.getElementById('practice-info-display'), instructionText: document.getElementById('instruction-text'), sourceText: document.getElementById('source-text'), translationInput: document.getElementById('translation-input'), highlighter: document.querySelector('.highlighter'), statusMessage: document.getElementById('status-message') };
     const resultsElements = { 
         mainScoreSection: document.getElementById('main-score-section'), 
         footer: document.getElementById('results-footer'),
@@ -347,17 +385,19 @@
         chartContainer: document.getElementById('final-score-chart-container'),
         details: document.getElementById('exam-summary-details')
     };
-    const buttons = { 
+    const buttons = {
         mainStart: document.getElementById('main-start-btn'),
-        headerSubmit: document.getElementById('header-submit-btn'), 
-        aspectView: document.getElementById('btn-aspect-view'), 
-        comparisonView: document.getElementById('btn-comparison-view'), 
+        headerSubmit: document.getElementById('header-submit-btn'),
+        headerSubmitMobile: document.getElementById('header-submit-btn-mobile'),
+        aspectView: document.getElementById('btn-aspect-view'),
+        comparisonView: document.getElementById('btn-comparison-view'),
         insightsView: document.getElementById('btn-insights-view'),
         generateInsights: document.getElementById('generate-insights-btn'),
         backToMenuStage: document.getElementById('back-to-menu-from-stage'),
         backToMenuSummary: document.getElementById('back-to-menu-from-summary'),
-        backPractice: document.getElementById('back-btn'), 
-        prevAi: document.getElementById('prev-ai-btn'), 
+        backPractice: document.getElementById('back-btn'),
+        backPracticeMobile: document.getElementById('back-btn-mobile'),
+        prevAi: document.getElementById('prev-ai-btn'),
         nextAi: document.getElementById('next-ai-btn'),
         nextRound: document.getElementById('next-round-btn')
     };
@@ -761,9 +801,21 @@
         if(visible) { audioFX.startLoading(); } else { audioFX.stopLoading(); }
         loader.text.textContent = text; loader.element.className = 'loader'; loader.element.classList.add(type); loader.container.classList.toggle('visible', visible); 
     };
-    const autoResizeTextarea = () => { const textarea = practiceElements.translationInput; textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; practiceElements.highlighter.style.height = `${textarea.scrollHeight}px`; };
-    const updateHighlighter = (text, errors) => { let content = text.replace(/\n/g, '<br>'); if (errors && errors.length > 0) { const escapedErrors = errors.map(e => e.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')); const regex = new RegExp(`\\b(${escapedErrors.join('|')})\\b`, 'gi'); content = content.replace(regex, `<mark class="typo">$1</mark>`); } practiceElements.highlighter.innerHTML = content; };
-    const showStatusMessage = (message, type) => { const statusEl = practiceElements.statusMessage; if (appState.statusMessageTimeout) clearTimeout(appState.statusMessageTimeout); statusEl.textContent = message; statusEl.classList.remove(...statusEl.classList); statusEl.classList.add('text-sm', 'mb-1', 'text-center', 'transition-all', 'duration-300', 'h-6'); if (type) { type.split(' ').forEach(cls => statusEl.classList.add(cls)); } else { statusEl.classList.add('text-slate-500'); } statusEl.classList.add('opacity-100'); if (message) { appState.statusMessageTimeout = setTimeout(() => { statusEl.classList.remove('opacity-100'); }, 4000); } else { statusEl.classList.remove('opacity-100'); } };
+    const autoResizeTextarea = () => {
+        const textarea = practiceElements.translationInput;
+        const highlighter = practiceElements.highlighter;
+        // Reset height to auto to ensure it shrinks correctly
+        textarea.style.height = 'auto';
+        highlighter.style.height = 'auto';
+        // Set the new height based on content
+        const scrollHeight = textarea.scrollHeight;
+        textarea.style.height = `${scrollHeight}px`;
+        highlighter.style.height = `${scrollHeight}px`;
+        // Sync scroll positions
+        highlighter.scrollTop = textarea.scrollTop;
+    };
+    const updateHighlighter = (text, errors) => { let content = text.replace(/\n/g, '<br>') + '<br>'; if (errors && errors.length > 0) { const escapedErrors = errors.map(e => e.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')); const regex = new RegExp(`\\b(${escapedErrors.join('|')})\\b`, 'gi'); content = content.replace(regex, `<mark class="typo">$1</mark>`); } practiceElements.highlighter.innerHTML = content; autoResizeTextarea(); };
+    const showStatusMessage = (message, type) => { const statusEl = practiceElements.statusMessage; if (appState.statusMessageTimeout) clearTimeout(appState.statusMessageTimeout); statusEl.textContent = message; statusEl.classList.remove(...statusEl.classList); statusEl.classList.add('text-sm', 'mb-2', 'text-center', 'transition-all', 'duration-300', 'h-6', 'flex-shrink-0'); if (type) { type.split(' ').forEach(cls => statusEl.classList.add(cls)); } else { statusEl.classList.add('text-slate-500'); } statusEl.classList.add('opacity-100'); if (message) { appState.statusMessageTimeout = setTimeout(() => { statusEl.classList.remove('opacity-100'); }, 4000); } else { statusEl.classList.remove('opacity-100'); } };
     const calculateJaccardSimilarity = (text1, text2) => { const set1 = new Set(text1.toLowerCase().split(/\s+/)); const set2 = new Set(text2.toLowerCase().split(/\s+/)); const intersection = new Set([...set1].filter(x => set2.has(x))); const union = new Set([...set1, ...set2]); return intersection.size / union.size; };
     const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; };
     const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
@@ -833,17 +885,21 @@
     practiceElements.translationInput.addEventListener('input', () => { autoResizeTextarea(); updateHighlighter(practiceElements.translationInput.value, []); showStatusMessage('', ''); });
     practiceElements.translationInput.addEventListener('scroll', () => { practiceElements.highlighter.scrollTop = practiceElements.translationInput.scrollTop; });
     stageIntroElements.startBtn.addEventListener('click', () => { audioFX.navForward(); handleStartStagePractice(); });
-    buttons.headerSubmit.addEventListener('click', () => { audioFX.navSelect(); showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit()); });
+    const handleSubmitClick = () => { audioFX.navSelect(); showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit()); };
+    buttons.headerSubmit.addEventListener('click', handleSubmitClick);
+    buttons.headerSubmitMobile.addEventListener('click', handleSubmitClick);
     buttons.backToMenuStage.addEventListener('click', () => { audioFX.navBack(); showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset()); });
     buttons.backToMenuSummary.addEventListener('click', () => { audioFX.navForward(); handleReset(); });
     buttons.nextRound.addEventListener('click', () => { audioFX.navForward(); handleNextRound(); });
-    buttons.backPractice.addEventListener('click', () => {
+    const handleBackPracticeClick = () => {
         audioFX.navBack();
-        const message = appState.currentMode === 'exam' 
-            ? "Keluar dari tahap ini akan mengakhiri seluruh sesi ujian. Apakah Anda yakin?" 
+        const message = appState.currentMode === 'exam'
+            ? "Keluar dari tahap ini akan mengakhiri seluruh sesi ujian. Apakah Anda yakin?"
             : "Apakah Anda yakin ingin keluar? Progress latihan ini akan hilang.";
         showConfirmationModal(message, () => handleReset());
-    });
+    };
+    buttons.backPractice.addEventListener('click', handleBackPracticeClick);
+    buttons.backPracticeMobile.addEventListener('click', handleBackPracticeClick);
     buttons.aspectView.addEventListener('click', () => { audioFX.navSwitch(); switchView('aspect'); });
     buttons.comparisonView.addEventListener('click', () => { audioFX.navSwitch(); switchView('comparison'); });
     buttons.insightsView.addEventListener('click', () => { audioFX.navSwitch(); switchView('insights'); });
@@ -879,9 +935,11 @@
     // --- Logika Utama Aplikasi ---
     function setupPracticeScreen(text, duration, title, examInfo = null) {
         appState.originalSourceText = text;
-        
+
         if (examInfo) {
-            practiceElements.headerTitle.textContent = "";
+            const titleText = `${examInfo.roundName} - Stage ${examInfo.stageIndex}`;
+            practiceElements.headerTitle.textContent = titleText;
+            practiceElements.headerTitleMobile.textContent = titleText;
             practiceElements.infoDisplay.innerHTML = `
                 <p><span class="font-semibold text-slate-600">Putaran:</span> <span class="text-slate-800 font-bold">${examInfo.roundName}</span></p>
                 <p><span class="font-semibold text-slate-600">Stage ${examInfo.stageIndex}:</span> <span class="text-slate-800 font-bold">${examInfo.stageType}</span></p>
@@ -891,6 +949,7 @@
             practiceElements.infoDisplay.classList.remove('hidden');
         } else {
             practiceElements.headerTitle.textContent = title;
+            practiceElements.headerTitleMobile.textContent = title;
             practiceElements.infoDisplay.classList.add('hidden');
         }
 
