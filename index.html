@@ -775,7 +775,6 @@
         updateDurationSlider();
         const value = parseInt(settings.duration.slider.value);
         const max = parseInt(settings.duration.slider.max);
-        const pitch = 1.0 + (value / max) * 0.5;
         synth.playClick({ volume: 0.1, pitch: 800 + (value/max * 800) });
     });
 
@@ -1623,4 +1622,3 @@
 </script>
 </body>
 </html>
-
