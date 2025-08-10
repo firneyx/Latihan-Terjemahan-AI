@@ -166,15 +166,28 @@
         </div>
 
         <div id="practice-screen" class="app-screen hidden">
-            <div id="practice-container" class="flex flex-col h-[calc(100vh-1rem)]">
+            <!-- This container's height will be set by JS to lock the layout -->
+            <div id="practice-container" class="flex flex-col w-full h-full">
                 <header class="py-2.5 border-b border-slate-200 flex-shrink-0"><div class="grid grid-cols-3 items-center"><div class="flex justify-start"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div><div class="text-center"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3><div id="timer-display" class="hidden items-center justify-center gap-2 text-sm font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div></div><div class="flex justify-end"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div></div></header>
-                <main class="py-6 flex-grow overflow-y-auto">
+
+                <!-- Main content area with bottom padding to avoid being obscured by the fixed footer -->
+                <main class="py-6 flex-grow overflow-y-auto pb-32">
                     <div id="practice-info-display" class="hidden p-4 mb-4 bg-slate-100 rounded-lg space-y-1 text-sm"></div>
                     <p id="instruction-text" class="mb-4 text-slate-500"></p>
                     <div id="source-text" class="text-slate-700 leading-relaxed text-base md:text-lg space-y-4"></div>
                 </main>
-                <footer class="flex-shrink-0 bg-slate-50 pt-2 pb-12"><div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div><div class="flex flex-col gap-2"><div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm"><div class="highlighter"></div><textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea></div></div></footer>
             </div>
+
+            <!-- Footer is now fixed to the bottom of the viewport -->
+            <footer class="fixed bottom-0 left-0 right-0 z-10 bg-slate-50/95 backdrop-blur-sm border-t border-slate-200">
+                <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-4">
+                    <div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div>
+                    <div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <div class="highlighter"></div>
+                        <textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea>
+                    </div>
+                </div>
+            </footer>
         </div>
 
         <div id="results-screen" class="app-screen hidden py-8 space-y-6">
@@ -634,45 +647,13 @@
         modal.overlay.classList.add('visible');
     };
 
-    function setupThreePaneLayout() {
-        const screen = document.getElementById('practice-screen');
+    function lockPracticeScreenHeight() {
         const container = document.getElementById('practice-container');
-        const header = container?.querySelector('header');
-        const main = container?.querySelector('main');
-        const footer = container?.querySelector('footer');
-
-        if (screen && container && header && main && footer) {
-            // Prevent the whole page from scrolling
-            document.body.style.overflow = 'hidden';
-
-            // Set up the screen as the main viewport-sized container
-            screen.style.height = '100dvh';
-            screen.style.position = 'relative';
-
-            // The container itself no longer needs a fixed height
-            container.style.height = '100%';
-
-            // Position the header, main, and footer
-            header.style.position = 'absolute';
-            header.style.top = '0';
-            header.style.left = '0';
-            header.style.right = '0';
-            header.style.zIndex = '10';
-            header.classList.add('bg-slate-50/95', 'backdrop-blur-sm');
-
-            main.style.position = 'absolute';
-            main.style.top = `${header.offsetHeight}px`;
-            main.style.bottom = `${footer.offsetHeight}px`;
-            main.style.left = '0';
-            main.style.right = '0';
-            main.style.overflowY = 'auto';
-
-            footer.style.position = 'absolute';
-            footer.style.bottom = '0';
-            footer.style.left = '0';
-            footer.style.right = '0';
-            footer.style.zIndex = '10';
-            footer.classList.add('bg-slate-50/95', 'backdrop-blur-sm');
+        if (container) {
+            // Set the container height to the actual viewport height in pixels.
+            // This 'locks' the layout and prevents it from resizing when the
+            // on-screen keyboard appears on mobile devices.
+            container.style.height = `${window.innerHeight}px`;
         }
     }
 
@@ -905,7 +886,7 @@
         autoResizeTextarea();
         showStatusMessage('', '');
         showScreen('practice');
-        setupThreePaneLayout();
+        lockPracticeScreenHeight();
         if (duration > 0) {
             practiceElements.timer.classList.remove('hidden');
             practiceElements.timer.classList.add('flex');
