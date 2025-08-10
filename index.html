@@ -166,14 +166,14 @@
         </div>
 
         <div id="practice-screen" class="app-screen hidden">
-            <div id="practice-container" class="flex flex-col overflow-y-auto" style="height: 100dvh;">
-                <header class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm py-2.5 border-b border-slate-200 flex-shrink-0"><div class="grid grid-cols-3 items-center"><div class="flex justify-start"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div><div class="text-center"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3><div id="timer-display" class="hidden items-center justify-center gap-2 text-sm font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div></div><div class="flex justify-end"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div></div></header>
-                <main class="py-6 flex-grow">
+            <div id="practice-container" class="flex flex-col h-[calc(100vh-1rem)]">
+                <header class="py-2.5 border-b border-slate-200 flex-shrink-0"><div class="grid grid-cols-3 items-center"><div class="flex justify-start"><button id="back-btn" class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Keluar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button></div><div class="text-center"><h3 id="practice-header-title" class="font-semibold text-slate-800 text-lg"></h3><div id="timer-display" class="hidden items-center justify-center gap-2 text-sm font-semibold text-slate-800"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span id="timer-label"></span></div></div><div class="flex justify-end"><button id="header-submit-btn" class="bg-blue-600 text-white font-semibold py-1.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 focus:ring-blue-500 transition-all text-sm">Selesai</button></div></div></header>
+                <main class="py-6 flex-grow overflow-y-auto">
                     <div id="practice-info-display" class="hidden p-4 mb-4 bg-slate-100 rounded-lg space-y-1 text-sm"></div>
                     <p id="instruction-text" class="mb-4 text-slate-500"></p>
                     <div id="source-text" class="text-slate-700 leading-relaxed text-base md:text-lg space-y-4"></div>
                 </main>
-                <footer class="sticky bottom-0 flex-shrink-0 bg-slate-50/95 backdrop-blur-sm pt-3 pb-4 border-t border-slate-200"><div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div><div class="flex flex-col gap-2"><div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm"><div class="highlighter"></div><textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea></div></div></footer>
+                <footer class="flex-shrink-0 bg-slate-50 pt-2 pb-12"><div id="status-message" class="text-sm mb-1 text-center opacity-0 transition-all duration-300 h-6"></div><div class="flex flex-col gap-2"><div class="input-wrapper bg-white border border-slate-200 rounded-xl shadow-sm"><div class="highlighter"></div><textarea id="translation-input" rows="1" class="border-transparent focus:ring-0 focus:border-transparent" placeholder="Ketik terjemahan Anda..."></textarea></div></div></footer>
             </div>
         </div>
 
@@ -634,6 +634,23 @@
         modal.overlay.classList.add('visible');
     };
 
+    function applyFloatingFooterLayout() {
+        const container = document.getElementById('practice-container');
+        const main = container?.querySelector('main');
+        const footer = container?.querySelector('footer');
+
+        if (container && main && footer) {
+            container.style.height = '100dvh';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+
+            main.style.flexGrow = '1';
+            main.style.overflowY = 'auto';
+
+            footer.style.flexShrink = '0';
+        }
+    }
+
     // --- UI Update Functions ---
     const updateSelectorUI = (key) => { const config = configOptions[key]; settings[key].value.textContent = config.display[config.current]; settings[key].prev.disabled = config.current === 0; settings[key].next.disabled = config.current === config.options.length - 1; };
     const updateSegmentedControl = (toggleElement, selectedValue) => { const glider = toggleElement.querySelector('.glider'); const options = Array.from(toggleElement.querySelectorAll('.option')); const selectedIndex = options.findIndex(opt => opt.dataset.value === selectedValue.toString()); if (selectedIndex !== -1 && options[0]) { const optionWidth = options[0].offsetWidth; glider.style.transform = `translateX(${selectedIndex * optionWidth}px)`; options.forEach((opt, index) => { opt.style.color = index === selectedIndex ? '#1e293b' : '#475569'; }); } };
@@ -862,6 +879,7 @@
         autoResizeTextarea();
         showStatusMessage('', '');
         showScreen('practice');
+        applyFloatingFooterLayout(); // Apply the layout right after showing the screen
         if (duration > 0) {
             practiceElements.timer.classList.remove('hidden');
             practiceElements.timer.classList.add('flex');
