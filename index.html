@@ -46,15 +46,18 @@
         .circular-progress-bg { fill: none; stroke: #e2e8f0; }
         .circular-progress-bar { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .circular-progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-        .slider-container { position: relative; padding-top: 1rem; }
-        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; }
+        .slider-container { position: relative; padding-top: 1rem; height: 40px; }
+        .slider-container::before { content: ''; position: absolute; height: 8px; width: 100%; background: #e2e8f0; border-radius: 4px; top: 1rem; left: 0; pointer-events: none; z-index: 0; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; position: relative; z-index: 2; margin: 0; }
         input[type="range"]:focus { outline: none; }
-        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e2e8f0; border-radius: 3px; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; border: 3px solid #fff; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -7px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.1s ease-in-out; }
-        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.1); }
-        #duration-fill { position: absolute; height: 6px; background: #3b82f6; border-radius: 3px; top: 1rem; left: 0; pointer-events: none; }
-        #duration-tooltip { position: absolute; top: -10px; background: #334155; color: white; padding: 4px 8px; border-radius: 5px; font-size: 0.8rem; font-weight: 600; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
-        .slider-container:hover #duration-tooltip, input[type="range"]:active ~ #duration-tooltip { opacity: 1; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: transparent; border-radius: 4px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; border: 4px solid #fff; height: 24px; width: 24px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s ease-in-out; position: relative; z-index: 3; }
+        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); background: #2563eb; }
+        #duration-fill { position: absolute; height: 8px; background: #3b82f6; border-radius: 4px; top: 1rem; left: 0; pointer-events: none; z-index: 1; }
+        #duration-tooltip { position: absolute; top: -12px; background: #334155; color: white; padding: 5px 10px; border-radius: 6px; font-size: 0.875rem; font-weight: 600; transform: translateX(-50%); pointer-events: none; opacity: 0; transition: opacity 0.2s, transform 0.2s; white-space: nowrap; z-index: 4; }
+        .slider-container:hover #duration-tooltip, input[type="range"]:active ~ #duration-tooltip { opacity: 1; transform: translateX(-50%) translateY(-8px); }
+        #duration-ticks { position: absolute; width: calc(100% - 20px); left: 10px; top: calc(1rem + 4px); display: flex; justify-content: space-between; pointer-events: none; z-index: 0; }
+        #duration-ticks .tick { width: 2px; height: 8px; background-color: rgba(100, 116, 139, 0.4); border-radius: 1px; }
         .dots-loader { display: flex; gap: 0.5rem; }
         .dots-loader div { width: 10px; height: 10px; background-color: #94a3b8; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .dots-loader .dot1 { animation-delay: -0.32s; }
@@ -120,7 +123,7 @@
                         <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Pengaturan Lanjutan</h2>
                         <div class="divide-y divide-slate-200 border-y border-slate-200">
                             <div class="flex justify-between items-center py-3.5 px-2"><label id="level-label" class="font-semibold text-slate-700">Tingkat Bahasa</label><div class="flex items-center gap-2"><button id="level-prev" class="control-btn p-2 hover:bg-slate-100 rounded-full disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg></button><span id="level-value" class="font-semibold text-slate-800 w-28 text-center">Menengah</span><button id="level-next" class="control-btn p-2 hover:bg-slate-100 rounded-full disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg></button></div></div>
-                            <div class="py-3.5 px-2 space-y-2"><div class="flex justify-between items-center"><label for="duration" class="font-semibold text-slate-700">Durasi</label><span id="duration-label" class="font-bold text-blue-600">Tak Terbatas</span></div><div class="slider-container"><div id="duration-fill"></div><input id="duration" type="range" min="0" max="1200" step="15" value="0" class="w-full"><div id="duration-tooltip"></div></div></div>
+                            <div class="py-3.5 px-2 space-y-2"><div class="flex justify-between items-center"><label for="duration" class="font-semibold text-slate-700">Durasi</label><span id="duration-label" class="font-bold text-blue-600">Tak Terbatas</span></div><div class="slider-container"><div id="duration-fill"></div><input id="duration" type="range" min="0" max="1200" step="15" value="0" class="w-full"><div id="duration-tooltip"></div><div id="duration-ticks" class="absolute w-full flex justify-between top-3.5 -z-10 px-1 pointer-events-none"></div></div></div>
                         </div>
                     </div>
                     <div>
@@ -307,7 +310,7 @@
         styleInput: document.getElementById('style-input'),
         length: { prev: document.getElementById('length-prev'), next: document.getElementById('length-next'), value: document.getElementById('length-value') }, 
         level: { prev: document.getElementById('level-prev'), next: document.getElementById('level-next'), value: document.getElementById('level-value'), label: document.getElementById('level-label') }, 
-        duration: { slider: document.getElementById('duration'), label: document.getElementById('duration-label'), tooltip: document.getElementById('duration-tooltip'), fill: document.getElementById('duration-fill') }
+        duration: { slider: document.getElementById('duration'), label: document.getElementById('duration-label'), tooltip: document.getElementById('duration-tooltip'), fill: document.getElementById('duration-fill'), ticks: document.getElementById('duration-ticks') }
     };
     const stageIntroElements = {
         title: document.getElementById('stage-intro-title'),
@@ -512,7 +515,9 @@
     const updateSelectorUI = (key) => { const config = configOptions[key]; settings[key].value.textContent = config.display[config.current]; settings[key].prev.disabled = config.current === 0; settings[key].next.disabled = config.current === config.options.length - 1; };
     const updateSegmentedControl = (toggleElement, selectedValue) => { const glider = toggleElement.querySelector('.glider'); const options = Array.from(toggleElement.querySelectorAll('.option')); const selectedIndex = options.findIndex(opt => opt.dataset.value === selectedValue.toString()); if (selectedIndex !== -1 && options[0]) { const optionWidth = options[0].offsetWidth; glider.style.transform = `translateX(${selectedIndex * optionWidth}px)`; options.forEach((opt, index) => { opt.style.color = index === selectedIndex ? '#1e293b' : '#475569'; }); } };
     const updateAiTranslationView = () => { if (appState.sortedAiTranslations.length === 0) return; resultsElements.compareAi.textContent = appState.sortedAiTranslations[appState.currentAiTranslationIndex].text; resultsElements.aiTranslationCounter.textContent = `${appState.currentAiTranslationIndex + 1} / 3`; buttons.prevAi.disabled = appState.currentAiTranslationIndex === 0; buttons.nextAi.disabled = appState.currentAiTranslationIndex === appState.sortedAiTranslations.length - 1; };
-    const updateDurationSlider = () => { const slider = settings.duration.slider; const tooltip = settings.duration.tooltip; const fill = settings.duration.fill; const value = parseInt(slider.value); const min = parseInt(slider.min); const max = parseInt(slider.max); if (value === 0) { settings.duration.label.textContent = 'Tak Terbatas'; tooltip.textContent = 'Tak Terbatas'; } else { const minutes = Math.floor(value / 60); const seconds = value % 60; const timeString = `${minutes}m ${seconds.toString().padStart(2, '0')}d`; settings.duration.label.textContent = timeString; tooltip.textContent = timeString; } const percent = ((value - min) / (max - min)) * 100; fill.style.width = `${percent}%`; const thumbWidth = 20; const trackWidth = slider.offsetWidth; const thumbPosition = (percent / 100) * (trackWidth - thumbWidth) + (thumbWidth / 2); tooltip.style.left = `${thumbPosition}px`; };
+    const updateDurationSlider = () => { const slider = settings.duration.slider; const tooltip = settings.duration.tooltip; const fill = settings.duration.fill; const value = parseInt(slider.value); const min = parseInt(slider.min); const max = parseInt(slider.max); if (value === 0) { settings.duration.label.textContent = 'Tak Terbatas'; tooltip.textContent = 'Tak Terbatas'; } else { const minutes = Math.floor(value / 60); const seconds = value % 60; const timeString = `${minutes}m ${seconds.toString().padStart(2, '0')}d`; settings.duration.label.textContent = timeString; tooltip.textContent = timeString; } const percent = max > min ? ((value - min) / (max - min)) * 100 : 0; fill.style.width = `${percent}%`; tooltip.style.left = `${percent}%`; };
+
+    const createDurationTicks = () => { const ticksContainer = settings.duration.ticks; if (!ticksContainer) return; ticksContainer.innerHTML = ''; const tickValues = [0, 300, 600, 900, 1200]; tickValues.forEach(() => { const tick = document.createElement('div'); tick.className = 'tick'; ticksContainer.appendChild(tick); }); };
 
     // --- Event Listeners ---
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
@@ -1297,6 +1302,7 @@
         updateSelectorUI('level'); 
         updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); 
         updateDurationSlider();
+        createDurationTicks();
         settings.level.label.textContent = `Tingkat Bahasa ${configOptions.direction === 'en-id' ? 'Inggris' : 'Indonesia'}`;
         
         appState.currentMode = 'free';
