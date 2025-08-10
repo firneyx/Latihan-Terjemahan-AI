@@ -274,6 +274,132 @@
     </div>
 
 <script type="module">
+    // --- Web Audio API Synthesis Utility ---
+    class SynthAudio {
+        constructor() {
+            this.audioCtx = null;
+            this.isMuted = false;
+            document.body.addEventListener('click', () => this.init(), { once: true });
+        }
+
+        init() {
+            if (this.audioCtx) return;
+            try {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {
+                console.error("Web Audio API is not supported in this browser.");
+            }
+        }
+
+        _createTone(freq, duration, options) {
+            if (!this.audioCtx || this.isMuted) return;
+            const now = this.audioCtx.currentTime;
+
+            const osc = this.audioCtx.createOscillator();
+            const gainNode = this.audioCtx.createGain();
+
+            const attackTime = options.attack || 0.01;
+            const decayTime = options.decay || 0.05;
+            const sustainLevel = options.sustain || 0.1;
+            const releaseTime = options.release || 0.1;
+            const totalDuration = duration || (attackTime + decayTime + releaseTime + 0.05);
+            const mainVolume = options.volume || 0.2;
+
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(mainVolume, now + attackTime);
+            gainNode.gain.exponentialRampToValueAtTime(sustainLevel * mainVolume, now + attackTime + decayTime);
+
+            osc.type = options.type || 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            if (options.pitchBend) {
+                osc.frequency.exponentialRampToValueAtTime(options.pitchBend, now + totalDuration * 0.8);
+            }
+
+            osc.connect(gainNode);
+            gainNode.connect(this.audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + totalDuration);
+        }
+
+        playClick(options = {}) {
+            const freq = options.pitch || 1200 + Math.random() * 200;
+            this._createTone(freq, 0.1, { ...options, volume: options.volume || 0.2, type: 'triangle', decay: 0.08 });
+        }
+
+        playToggle(isUp = true) {
+            const freq = isUp ? 1000 : 800;
+            this._createTone(freq, 0.1, { volume: 0.15, type: 'triangle', decay: 0.08 });
+        }
+
+        playExpand(isExpanding = true) {
+             const freq = isExpanding ? 1500 : 1300;
+             this._createTone(freq, 0.08, { volume: 0.1, type: 'sine', decay: 0.05 });
+        }
+
+        playPopup() {
+            this._createTone(400, 0.15, { volume: 0.3, type: 'sine', decay: 0.1, pitchBend: 150 });
+        }
+
+        playStart() {
+            if (!this.audioCtx || this.isMuted) return;
+            this._createTone(300, 0.1, { volume: 0.25, type: 'sine', decay: 0.08 });
+            setTimeout(() => this._createTone(500, 0.15, { volume: 0.3, type: 'sine', decay: 0.1 }), 100);
+        }
+
+        playSubmit() {
+            if (!this.audioCtx || this.isMuted) return;
+            this._createTone(523, 0.1, { volume: 0.25, type: 'sine', decay: 0.08 });
+            setTimeout(() => this._createTone(783, 0.1, { volume: 0.25, type: 'sine', decay: 0.08 }), 120);
+        }
+
+        playSuccess() {
+            if (!this.audioCtx || this.isMuted) return;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((note, i) => {
+                setTimeout(() => {
+                    this._createTone(note, 0.2, { volume: 0.2, type: 'sine', decay: 0.15 });
+                }, i * 90);
+            });
+        }
+
+        playSwoosh() {
+            if (!this.audioCtx || this.isMuted) return;
+            const now = this.audioCtx.currentTime;
+            const duration = 0.2;
+
+            const noise = this.audioCtx.createBufferSource();
+            const bufferSize = this.audioCtx.sampleRate * duration;
+            const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            noise.buffer = buffer;
+
+            const filter = this.audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.Q.value = 10;
+            filter.frequency.setValueAtTime(200, now);
+            filter.frequency.exponentialRampToValueAtTime(4000, now + duration);
+
+            const gainNode = this.audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+            noise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(this.audioCtx.destination);
+
+            noise.start(now);
+            noise.stop(now + duration);
+        }
+    }
+
+    // Instantiate the new audio utility
+    const synth = new SynthAudio();
+
     // --- Elemen DOM ---
     const screens = { 
         mainMenu: document.getElementById('main-menu-screen'),
@@ -566,7 +692,15 @@
         if (score >= 70) return 'C';
         return 'Tidak Lulus';
     };
-    const showScreen = (screenName) => { Object.values(screens).forEach(screen => screen.classList.add('hidden')); screens[screenName].style.opacity = 0; screens[screenName].classList.remove('hidden'); setTimeout(() => screens[screenName].style.opacity = 1, 50); };
+    const showScreen = (screenName) => {
+        Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+        screens[screenName].style.opacity = 0;
+        screens[screenName].classList.remove('hidden');
+        setTimeout(() => screens[screenName].style.opacity = 1, 50);
+        if (screenName !== 'mainMenu') {
+            synth.playSwoosh();
+        }
+    };
     const showLoader = (visible, text = "Memuat...", type = 'analysis') => { loader.text.textContent = text; loader.element.className = 'loader'; loader.element.classList.add(type); loader.container.classList.toggle('visible', visible); };
     const autoResizeTextarea = () => { const textarea = practiceElements.translationInput; textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; practiceElements.highlighter.style.height = `${textarea.scrollHeight}px`; };
     const updateHighlighter = (text, errors) => { let content = text.replace(/\n/g, '<br>'); if (errors && errors.length > 0) { const escapedErrors = errors.map(e => e.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')); const regex = new RegExp(`\\b(${escapedErrors.join('|')})\\b`, 'gi'); content = content.replace(regex, `<mark class="typo">$1</mark>`); } practiceElements.highlighter.innerHTML = content; };
@@ -575,6 +709,7 @@
     const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; };
     const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
     const showConfirmationModal = (message, onConfirm, title = "Konfirmasi") => {
+        synth.playPopup();
         modal.message.textContent = message;
         modal.title.textContent = title;
         appState.onConfirmAction = onConfirm;
@@ -593,6 +728,8 @@
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
         const targetOption = e.target.closest('.option');
         if (!targetOption) return;
+
+        synth.playToggle(targetOption.dataset.value === 'exam');
         const selectedMode = targetOption.dataset.value;
         appState.currentMode = selectedMode;
         updateSegmentedControl(mainMenuElements.modeToggle, selectedMode);
@@ -612,6 +749,7 @@
     });
 
     buttons.mainStart.addEventListener('click', () => {
+        synth.playStart();
         if (appState.currentMode === 'free') {
             handleStartFreePractice();
         } else {
@@ -619,8 +757,13 @@
         }
     });
 
-    modal.cancelBtn.addEventListener('click', () => modal.overlay.classList.remove('visible'));
+    modal.cancelBtn.addEventListener('click', () => {
+        synth.playClick({ pitch: 800 });
+        modal.overlay.classList.remove('visible');
+    });
+
     modal.confirmBtn.addEventListener('click', () => {
+        synth.playClick();
         modal.overlay.classList.remove('visible');
         if (appState.onConfirmAction) {
             appState.onConfirmAction();
@@ -628,52 +771,144 @@
         }
     });
 
-    settings.duration.slider.addEventListener('input', updateDurationSlider);
-    settings.directionBtn.addEventListener('click', () => { configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id'; const isEnId = configOptions.direction === 'en-id'; settings.langFrom.textContent = isEnId ? 'EN' : 'ID'; settings.langTo.textContent = isEnId ? 'ID' : 'EN'; settings.directionIcon.classList.toggle('rotate-180'); settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`; });
-    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
-    const createSelectorHandler = (key, direction) => () => { const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
+    settings.duration.slider.addEventListener('input', () => {
+        updateDurationSlider();
+        const value = parseInt(settings.duration.slider.value);
+        const max = parseInt(settings.duration.slider.max);
+        const pitch = 1.0 + (value / max) * 0.5;
+        synth.playClick({ volume: 0.1, pitch: 800 + (value/max * 800) });
+    });
+
+    settings.directionBtn.addEventListener('click', () => {
+        synth.playToggle();
+        configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id';
+        const isEnId = configOptions.direction === 'en-id';
+        settings.langFrom.textContent = isEnId ? 'EN' : 'ID';
+        settings.langTo.textContent = isEnId ? 'ID' : 'EN';
+        settings.directionIcon.classList.toggle('rotate-180');
+        settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`;
+    });
+
+    settings.paragraphsToggle.addEventListener('click', (e) => {
+        const targetOption = e.target.closest('.option');
+        if (!targetOption) return;
+        synth.playToggle();
+        configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10);
+        updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current);
+    });
+
+    const createSelectorHandler = (key, direction) => () => {
+        const config = configOptions[key];
+        const newIndex = config.current + direction;
+        if (newIndex >= 0 && newIndex < config.options.length) {
+            config.current = newIndex;
+            updateSelectorUI(key);
+            synth.playClick({ pitch: 1000 + direction * 200 });
+        }
+    };
+
     settings.length.prev.addEventListener('click', createSelectorHandler('length', -1));
     settings.length.next.addEventListener('click', createSelectorHandler('length', 1));
     settings.level.prev.addEventListener('click', createSelectorHandler('level', -1));
     settings.level.next.addEventListener('click', createSelectorHandler('level', 1));
+
     practiceElements.translationInput.addEventListener('input', () => { autoResizeTextarea(); updateHighlighter(practiceElements.translationInput.value, []); showStatusMessage('', ''); });
     practiceElements.translationInput.addEventListener('scroll', () => { practiceElements.highlighter.scrollTop = practiceElements.translationInput.scrollTop; });
-    stageIntroElements.startBtn.addEventListener('click', handleStartStagePractice);
-    buttons.headerSubmit.addEventListener('click', () => showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit()));
-    buttons.backToMenuStage.addEventListener('click', () => showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset()));
-    buttons.backToMenuSummary.addEventListener('click', handleReset);
-    buttons.nextRound.addEventListener('click', handleNextRound);
+
+    stageIntroElements.startBtn.addEventListener('click', () => {
+        synth.playStart();
+        handleStartStagePractice();
+    });
+
+    buttons.headerSubmit.addEventListener('click', () => {
+        showConfirmationModal("Apakah Anda yakin ingin menyelesaikan tahap ini? Jawaban tidak dapat diubah.", () => handleSubmit());
+    });
+
+    buttons.backToMenuStage.addEventListener('click', () => {
+        synth.playClick({ pitch: 800 });
+        showConfirmationModal("Kembali ke menu utama akan mengakhiri ujian. Apakah Anda yakin?", () => handleReset());
+    });
+
+    buttons.backToMenuSummary.addEventListener('click', () => {
+        synth.playClick();
+        handleReset();
+    });
+
+    buttons.nextRound.addEventListener('click', () => {
+        synth.playStart();
+        handleNextRound();
+    });
+
     buttons.backPractice.addEventListener('click', () => {
+        synth.playClick({ pitch: 800 });
         const message = appState.currentMode === 'exam' 
             ? "Keluar dari tahap ini akan mengakhiri seluruh sesi ujian. Apakah Anda yakin?" 
             : "Apakah Anda yakin ingin keluar? Progress latihan ini akan hilang.";
         showConfirmationModal(message, () => handleReset());
     });
+
     buttons.aspectView.addEventListener('click', () => switchView('aspect'));
     buttons.comparisonView.addEventListener('click', () => switchView('comparison'));
     buttons.insightsView.addEventListener('click', () => switchView('insights'));
-    buttons.generateInsights.addEventListener('click', handleGenerateInsights);
-    buttons.prevAi.addEventListener('click', () => { if (appState.currentAiTranslationIndex > 0) { appState.currentAiTranslationIndex--; updateAiTranslationView(); } });
-    buttons.nextAi.addEventListener('click', () => { if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) { appState.currentAiTranslationIndex++; updateAiTranslationView(); } });
-    resultsElements.aspectView.addEventListener('click', (e) => { const header = e.target.closest('.aspect-header'); if (header) { const parentSection = header.closest('section'); if (parentSection) { const details = parentSection.querySelector('.focus-details'); if (details) { header.classList.toggle('expanded'); details.classList.toggle('expanded'); } } } });
+
+    buttons.generateInsights.addEventListener('click', () => {
+        synth.playStart();
+        handleGenerateInsights();
+    });
+
+    buttons.prevAi.addEventListener('click', () => {
+        if (appState.currentAiTranslationIndex > 0) {
+            synth.playClick({ pitch: 900 });
+            appState.currentAiTranslationIndex--;
+            updateAiTranslationView();
+        }
+    });
+
+    buttons.nextAi.addEventListener('click', () => {
+        if (appState.currentAiTranslationIndex < appState.sortedAiTranslations.length - 1) {
+            synth.playClick({ pitch: 1100 });
+            appState.currentAiTranslationIndex++;
+            updateAiTranslationView();
+        }
+    });
+
+    resultsElements.aspectView.addEventListener('click', (e) => {
+        const header = e.target.closest('.aspect-header');
+        if (header) {
+            const parentSection = header.closest('section');
+            if (parentSection) {
+                const details = parentSection.querySelector('.focus-details');
+                if (details) {
+                    synth.playExpand(!details.classList.contains('expanded'));
+                    header.classList.toggle('expanded');
+                    details.classList.toggle('expanded');
+                }
+            }
+        }
+    });
+
     stageIntroElements.domainSelection.addEventListener('click', e => {
         const card = e.target.closest('.domain-card');
         if (card) {
+            synth.playClick();
             document.querySelectorAll('.domain-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             appState.exam.selectedDomain = card.dataset.domain;
             stageIntroElements.domainError.classList.add('hidden');
         }
     });
+
     resultsElements.comparisonView.addEventListener('click', (e) => {
         const reorderBtn = e.target.closest('.reorder-btn');
         const highlightBtn = e.target.closest('.highlight-trigger-btn');
         if (reorderBtn) {
+            synth.playClick({ pitch: 800 });
             const section = reorderBtn.closest('section');
             const direction = reorderBtn.dataset.direction;
             reorderTextSections(section, direction);
         }
         if (highlightBtn) {
+            synth.playSubmit();
             handleManualHighlight(highlightBtn);
         }
     });
@@ -768,6 +1003,7 @@
     }
 
     async function handleSubmit() { 
+        synth.playSubmit();
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         const currentTranslation = practiceElements.translationInput.value.trim(); 
         if (!currentTranslation) {
@@ -797,6 +1033,7 @@
     }
     
     function handleReset() { 
+        synth.playClick();
         showScreen('mainMenu');
         if (appState.timerInterval) clearInterval(appState.timerInterval); 
         appState = {
@@ -815,6 +1052,7 @@
     }
     
     function switchView(viewName) { 
+        synth.playSwoosh();
         const views = { aspect: resultsElements.aspectView, comparison: resultsElements.comparisonView, insights: resultsElements.insightsView };
         const viewButtons = { aspect: buttons.aspectView, comparison: buttons.comparisonView, insights: buttons.insightsView };
         Object.values(views).forEach(v => v.classList.add('hidden'));
@@ -824,6 +1062,7 @@
     }
 
     async function displayResults(data) {
+        synth.playSuccess();
         // Reset highlight state
         appState.originalHighlightedHTML = '';
         appState.userHighlightedHTML = '';
