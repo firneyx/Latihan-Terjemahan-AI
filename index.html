@@ -516,13 +516,48 @@
             });
         },
 
-        // --- PUBLIC API ---
-        navForward: function() { this._resumeContext(); this._glassyPluck(this._midiToFreq(72)); }, // C5
-        navSelect: function() { this._resumeContext(); this._glassyPluck(this._midiToFreq(79), { decay: 0.05, release: 0.05, volume: 0.3 }); }, // G5
+        // --- PUBLIC API (Mechanical & Tactile Theme) ---
+        navForward: function() {
+            this._resumeContext();
+            // Complex sound: "tick" followed by a rising "whir"
+            this._createVoice(this._midiToFreq(84), { type: 'triangle', volume: 0.3, attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 });
+            if (!this.audioContext || this.isSuspended) return;
+            const now = this.audioContext.currentTime;
+            const whirGain = this.audioContext.createGain();
+            whirGain.gain.setValueAtTime(0, now + 0.02);
+            whirGain.gain.linearRampToValueAtTime(0.1, now + 0.03);
+            whirGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            whirGain.connect(this.masterGain);
+            const whirOsc = this.audioContext.createOscillator();
+            whirOsc.type = 'sawtooth';
+            whirOsc.frequency.setValueAtTime(800, now + 0.02);
+            whirOsc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+            whirOsc.connect(whirGain);
+            whirOsc.start(now + 0.02);
+            whirOsc.stop(now + 0.2);
+        },
         navBack: function() {
             this._resumeContext();
-            this._glassyPluck(this._midiToFreq(76), { volume: 0.35 }); // E5
-            setTimeout(() => this._glassyPluck(this._midiToFreq(72), { volume: 0.35 }), 100); // C5
+            // "Thunk" sound
+            this._createVoice(120, { type: 'square', volume: 0.3, attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 });
+        },
+        // Granular selection sounds
+        navSelect: function() { // For general buttons, this is the default click.
+            this._resumeContext();
+            this._createVoice(this._midiToFreq(88), { type: 'triangle', volume: 0.3, attack: 0.001, decay: 0.03, sustain: 0, release: 0.05 });
+        },
+        navSelectSegment: function() { // For segmented controls
+            this._resumeContext();
+            this._createVoice(this._midiToFreq(72), { type: 'square', volume: 0.25, attack: 0.002, decay: 0.08, sustain: 0, release: 0.08 });
+        },
+        navSelectControl: function() { // For up/down arrows
+            this._resumeContext();
+            // Ratchet sound
+            for (let i = 0; i < 2; i++) {
+                setTimeout(() => {
+                    this._createVoice(this._midiToFreq(96), { type: 'triangle', volume: 0.08, attack: 0.001, decay: 0.015, sustain: 0, release: 0.015 });
+                }, i * 25);
+            }
         },
         navSwitch: function() {
             if (!this.audioContext || this.isSuspended) return;
@@ -749,7 +784,7 @@
     mainMenuElements.modeToggle.addEventListener('click', (e) => {
         const targetOption = e.target.closest('.option');
         if (!targetOption) return;
-        audioFX.navSelect();
+        audioFX.navSelectSegment();
         const selectedMode = targetOption.dataset.value;
         appState.currentMode = selectedMode;
         updateSegmentedControl(mainMenuElements.modeToggle, selectedMode);
@@ -769,7 +804,7 @@
     });
 
     buttons.mainStart.addEventListener('click', () => {
-        audioFX._init();
+        // audioFX._init() is now called on app load to enable audio from the first interaction.
         audioFX.navForward();
         if (appState.currentMode === 'free') {
             handleStartFreePractice();
@@ -789,8 +824,8 @@
     });
 
     settings.directionBtn.addEventListener('click', () => { audioFX.navSelect(); configOptions.direction = configOptions.direction === 'en-id' ? 'id-en' : 'en-id'; const isEnId = configOptions.direction === 'en-id'; settings.langFrom.textContent = isEnId ? 'EN' : 'ID'; settings.langTo.textContent = isEnId ? 'ID' : 'EN'; settings.directionIcon.classList.toggle('rotate-180'); settings.level.label.textContent = `Tingkat Bahasa ${isEnId ? 'Inggris' : 'Indonesia'}`; });
-    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; audioFX.navSelect(); configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
-    const createSelectorHandler = (key, direction) => () => { audioFX.navSelect(); const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
+    settings.paragraphsToggle.addEventListener('click', (e) => { const targetOption = e.target.closest('.option'); if (!targetOption) return; audioFX.navSelectSegment(); configOptions.paragraphs.current = parseInt(targetOption.dataset.value, 10); updateSegmentedControl(settings.paragraphsToggle, configOptions.paragraphs.current); });
+    const createSelectorHandler = (key, direction) => () => { audioFX.navSelectControl(); const config = configOptions[key]; const newIndex = config.current + direction; if (newIndex >= 0 && newIndex < config.options.length) { config.current = newIndex; updateSelectorUI(key); } };
     settings.length.prev.addEventListener('click', createSelectorHandler('length', -1));
     settings.length.next.addEventListener('click', createSelectorHandler('length', 1));
     settings.level.prev.addEventListener('click', createSelectorHandler('level', -1));
@@ -1545,7 +1580,23 @@
     function initializeApp() {
         initializeAppUI();
         showScreen('mainMenu');
-        settings.duration.slider.addEventListener('input', () => { audioFX.navSelect(); updateDurationSlider(); });
+        settings.duration.slider.addEventListener('input', () => { audioFX.navSelectControl(); updateDurationSlider(); });
+
+        // Initialize audio context early, so it's ready on the first user interaction.
+        audioFX._init();
+
+        // The AudioContext starts suspended and must be resumed by a user gesture.
+        // This one-time listener handles the first interaction anywhere on the page.
+        const resumeAudio = () => {
+            if (audioFX.audioContext && audioFX.audioContext.state === 'suspended') {
+                audioFX._resumeContext();
+            }
+            // Clean up the listener after first use
+            document.body.removeEventListener('click', resumeAudio);
+            document.body.removeEventListener('touchend', resumeAudio);
+        };
+        document.body.addEventListener('click', resumeAudio);
+        document.body.addEventListener('touchend', resumeAudio);
     }
     
     document.addEventListener('DOMContentLoaded', initializeApp);
