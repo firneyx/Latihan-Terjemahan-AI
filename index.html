@@ -95,6 +95,8 @@
                 <p id="main-menu-subtitle" class="text-slate-500 mt-3 text-lg max-w-xl mx-auto">Atur sendiri tingkat kesulitan, durasi, dan topik latihan Anda.</p>
             </header>
 
+            <div id="main-menu-error" class="hidden p-4 mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm"></div>
+
             <div id="mode-toggle" class="segmented-control mb-8 max-w-sm mx-auto">
                 <div class="glider"></div>
                 <div class="option" data-value="free">Latihan Bebas</div>
@@ -324,7 +326,8 @@
         subtitle: document.getElementById('main-menu-subtitle'),
         modeToggle: document.getElementById('mode-toggle'),
         freePracticeSettings: document.getElementById('free-practice-settings'),
-        mainStartBtn: document.getElementById('main-start-btn')
+        mainStartBtn: document.getElementById('main-start-btn'),
+        errorDisplay: document.getElementById('main-menu-error')
     };
     const settings = { 
         directionBtn: document.getElementById('direction-toggle-btn'),
@@ -904,7 +907,10 @@
             }
         } catch (error) {
             console.error("Gagal membuat teks latihan:", error);
-            showScreen('mainMenu'); 
+            const errorMessage = "Maaf, terjadi kesalahan saat mencoba membuat latihan. Ini mungkin karena masalah koneksi atau API. Silakan coba lagi nanti.";
+            mainMenuElements.errorDisplay.textContent = errorMessage;
+            mainMenuElements.errorDisplay.classList.remove('hidden');
+            showScreen('mainMenu');
             return null;
         } finally {
             showLoader(false);
@@ -912,6 +918,7 @@
     }
 
     async function handleStartFreePractice() { 
+        mainMenuElements.errorDisplay.classList.add('hidden');
         const prompt = getExercisePrompt();
         const { text } = await generatePracticeText(prompt, false);
         if (text) {
@@ -1184,6 +1191,7 @@
 
     // --- Exam Mode Logic ---
     function initExamMode() {
+        mainMenuElements.errorDisplay.classList.add('hidden');
         appState.exam = {
             currentRoundIndex: 0,
             stagesToAttemptInCurrentRound: [0, 1, 2, 3, 4],
